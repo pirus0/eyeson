@@ -15,8 +15,8 @@ import type {
   OneOff,
   RecurringTodo,
   StoreData,
+  WeeklyTodo,
 } from "./types";
-import { completionKey } from "./types";
 import { emptyData, loadData, saveData } from "./storage";
 
 function makeId(): string {
@@ -40,10 +40,15 @@ type StoreContextValue = {
     importance: Importance;
   }) => void;
   addRecurringTodo: (input: { title: string; startDate: string }) => void;
+  addWeeklyTodo: (input: { title: string; startDate: string }) => void;
   addOneOff: (input: { title: string; date: string }) => void;
-  removeItem: (kind: "bill" | "installment" | "recurringTodo" | "oneOff", id: string) => void;
-  toggleActive: (kind: "bill" | "recurringTodo", id: string) => void;
-  setDone: (itemId: string, dateKey: string, done: boolean) => void;
+  removeItem: (
+    kind: "bill" | "installment" | "recurringTodo" | "weeklyTodo" | "oneOff",
+    id: string
+  ) => void;
+  toggleActive: (kind: "bill" | "recurringTodo" | "weeklyTodo", id: string) => void;
+  /** `key` is an Occurrence's `key` (already accounts for daily vs weekly completion grouping). */
+  setDone: (key: string, done: boolean) => void;
 };
 
 const StoreContext = createContext<StoreContextValue | null>(null);
@@ -104,6 +109,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setData((d) => ({ ...d, recurringTodos: [...d.recurringTodos, todo] }));
   }, []);
 
+  const addWeeklyTodo = useCallback<StoreContextValue["addWeeklyTodo"]>((input) => {
+    const todo: WeeklyTodo = {
+      id: makeId(),
+      kind: "weeklyTodo",
+      title: input.title,
+      startDate: input.startDate,
+      createdAt: new Date().toISOString(),
+      active: true,
+    };
+    setData((d) => ({ ...d, weeklyTodos: [...d.weeklyTodos, todo] }));
+  }, []);
+
   const addOneOff = useCallback<StoreContextValue["addOneOff"]>((input) => {
     const oneOff: OneOff = {
       id: makeId(),
@@ -124,6 +141,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           return { ...d, installments: d.installments.filter((x) => x.id !== id) };
         case "recurringTodo":
           return { ...d, recurringTodos: d.recurringTodos.filter((x) => x.id !== id) };
+        case "weeklyTodo":
+          return { ...d, weeklyTodos: d.weeklyTodos.filter((x) => x.id !== id) };
         case "oneOff":
           return { ...d, oneOffs: d.oneOffs.filter((x) => x.id !== id) };
       }
@@ -138,6 +157,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           bills: d.bills.map((b) => (b.id === id ? { ...b, active: !b.active } : b)),
         };
       }
+      if (kind === "weeklyTodo") {
+        return {
+          ...d,
+          weeklyTodos: d.weeklyTodos.map((t) => (t.id === id ? { ...t, active: !t.active } : t)),
+        };
+      }
       return {
         ...d,
         recurringTodos: d.recurringTodos.map((t) =>
@@ -147,8 +172,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const setDone = useCallback<StoreContextValue["setDone"]>((itemId, dateKey, done) => {
-    const key = completionKey(itemId, dateKey);
+  const setDone = useCallback<StoreContextValue["setDone"]>((key, done) => {
     setData((d) => ({
       ...d,
       completions: {
@@ -165,12 +189,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       addBill,
       addInstallment,
       addRecurringTodo,
+      addWeeklyTodo,
       addOneOff,
       removeItem,
       toggleActive,
       setDone,
     }),
-    [data, ready, addBill, addInstallment, addRecurringTodo, addOneOff, removeItem, toggleActive, setDone]
+    [
+      data,
+      ready,
+      addBill,
+      addInstallment,
+      addRecurringTodo,
+      addWeeklyTodo,
+      addOneOff,
+      removeItem,
+      toggleActive,
+      setDone,
+    ]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

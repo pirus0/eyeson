@@ -46,7 +46,7 @@ export function CalendarApp() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[env(safe-area-inset-bottom)]">
       <header className="flex items-center justify-between pb-2">
-        <h1 className="text-lg font-semibold text-zinc-900">Eyes On</h1>
+        <h1 className="font-hand text-4xl text-ink">Eyes On</h1>
         <BellMenu
           today={today}
           onSelectDate={(date) => {

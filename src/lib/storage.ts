@@ -7,6 +7,7 @@ export function emptyData(): StoreData {
     bills: [],
     installments: [],
     recurringTodos: [],
+    weeklyTodos: [],
     oneOffs: [],
     completions: {},
   };
@@ -22,6 +23,7 @@ export function loadData(): StoreData {
       bills: parsed.bills ?? [],
       installments: parsed.installments ?? [],
       recurringTodos: parsed.recurringTodos ?? [],
+      weeklyTodos: parsed.weeklyTodos ?? [],
       oneOffs: parsed.oneOffs ?? [],
       completions: parsed.completions ?? {},
     };

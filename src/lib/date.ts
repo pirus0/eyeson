@@ -10,6 +10,7 @@ import {
   parseISO,
   setDate,
   startOfMonth,
+  startOfWeek,
 } from "date-fns";
 import { tr } from "date-fns/locale";
 
@@ -31,6 +32,11 @@ export function todayKey(): string {
 export function clampToMonth(year: number, monthIndex: number, day: number): Date {
   const last = getDaysInMonth(new Date(year, monthIndex, 1));
   return new Date(year, monthIndex, Math.min(day, last));
+}
+
+/** Monday of the week containing `date` (weeks run Mon-Sun, matching the calendar grid). */
+export function weekStart(date: Date): Date {
+  return startOfWeek(date, { weekStartsOn: 1 });
 }
 
 export function monthGrid(anchor: Date): Date[] {

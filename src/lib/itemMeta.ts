@@ -6,20 +6,23 @@ export const KIND_LABELS: Record<ItemKind, string> = {
   bill: "Fatura / Abonelik",
   installment: "Taksit",
   recurringTodo: "Günlük Görev",
+  weeklyTodo: "Haftalık Görev",
   oneOff: "Tek Seferlik",
 };
 
+// Muted, colored-pencil-style dots rather than bright saturated UI colors.
 export const KIND_DOT_CLASS: Record<ItemKind, string> = {
-  bill: "bg-amber-400",
-  installment: "bg-sky-400",
-  recurringTodo: "bg-emerald-400",
-  oneOff: "bg-violet-400",
+  bill: "bg-[#a8442c]", // red pen
+  installment: "bg-[#3d6b8a]", // blue pencil
+  recurringTodo: "bg-[#5c7a4a]", // green pencil
+  weeklyTodo: "bg-[#8a6d3b]", // ochre pencil
+  oneOff: "bg-[#6b5b8a]", // violet pencil
 };
 
 export const IMPORTANCE_DOT_CLASS: Record<Importance, string> = {
-  yuksek: "bg-red-500",
-  orta: "bg-amber-500",
-  dusuk: "bg-zinc-400",
+  yuksek: "bg-[#a8442c]",
+  orta: "bg-[#b8873f]",
+  dusuk: "bg-ink-faint",
 };
 
 export function itemTitle(item: AnyItem): string {

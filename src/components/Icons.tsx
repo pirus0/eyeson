@@ -3,7 +3,7 @@ type IconProps = { className?: string };
 const base = {
   fill: "none",
   stroke: "currentColor",
-  strokeWidth: 1.6,
+  strokeWidth: 1.8,
   strokeLinecap: "round" as const,
   strokeLinejoin: "round" as const,
 };
@@ -88,6 +88,29 @@ export function RepeatIcon({ className }: IconProps) {
     <svg viewBox="0 0 24 24" className={className} {...base}>
       <path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3" />
       <path d="M17 3v4h-4M7 21v-4h4" />
+    </svg>
+  );
+}
+
+/** Hand-sketched flame: a filled silhouette plus a second faint offset
+ * stroke, the same "drawn twice" trick used for the app icon and the
+ * selected-day ring, so it reads as pencil rather than a clean vector icon. */
+export function FlameIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className}>
+      <path
+        d="M12 2c-1.8 3.2-4.7 5.7-4.7 9.5a4.7 4.7 0 0 0 9.4 0c0-1.8-.7-3.2-1.6-4.4.1 1.8-1 3-2.1 3-1.1 0-1.9-1-1.9-2.3 0-1.9 1.4-3 .9-5.8Z"
+        fill="currentColor"
+      />
+      <path
+        d="M11.6 2.8c-1.6 3-4 5.4-4.2 8.6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="0.9"
+        strokeLinecap="round"
+        opacity="0.45"
+        transform="rotate(3 11 8)"
+      />
     </svg>
   );
 }

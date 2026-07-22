@@ -31,6 +31,15 @@ export type RecurringTodo = {
   active: boolean;
 };
 
+export type WeeklyTodo = {
+  id: string;
+  kind: "weeklyTodo";
+  title: string;
+  startDate: string; // YYYY-MM-DD, repeats every week (Mon-Sun) from here on
+  createdAt: string;
+  active: boolean;
+};
+
 export type OneOff = {
   id: string;
   kind: "oneOff";
@@ -40,7 +49,7 @@ export type OneOff = {
 };
 
 export type PaymentItem = Bill | Installment;
-export type AnyItem = Bill | Installment | RecurringTodo | OneOff;
+export type AnyItem = Bill | Installment | RecurringTodo | WeeklyTodo | OneOff;
 
 export type Completion = {
   done: boolean;
@@ -54,6 +63,7 @@ export type StoreData = {
   bills: Bill[];
   installments: Installment[];
   recurringTodos: RecurringTodo[];
+  weeklyTodos: WeeklyTodo[];
   oneOffs: OneOff[];
   completions: CompletionMap;
 };

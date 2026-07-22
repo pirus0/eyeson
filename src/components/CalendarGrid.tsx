@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { isSameDay, monthGrid, formatMonthTitle, toKey } from "@/lib/date";
-import { ChevronLeftIcon, ChevronRightIcon } from "./Icons";
+import { ChevronLeftIcon, ChevronRightIcon, FlameIcon } from "./Icons";
 import type { Occurrence } from "@/lib/occurrences";
 import { KIND_DOT_CLASS } from "@/lib/itemMeta";
 
@@ -18,6 +18,28 @@ type Props = {
   onNextMonth: () => void;
 };
 
+/** A circle drawn "twice" with a slight mismatch, like a pen mark on paper. */
+function SketchRing({ color, faint = false }: { color: string; faint?: boolean }) {
+  return (
+    <svg viewBox="0 0 44 44" className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
+      <ellipse
+        cx="22" cy="21" rx="17.5" ry="17"
+        fill="none" stroke={color} strokeWidth={faint ? 1.3 : 2}
+        strokeDasharray={faint ? "3 3" : undefined}
+        opacity={faint ? 0.55 : 0.9}
+        transform="rotate(-4 22 21)"
+      />
+      {!faint && (
+        <ellipse
+          cx="21.3" cy="22.4" rx="16.8" ry="17.6"
+          fill="none" stroke={color} strokeWidth={1.4} opacity={0.5}
+          transform="rotate(6 21.3 22.4)"
+        />
+      )}
+    </svg>
+  );
+}
+
 export function CalendarGrid({
   monthAnchor,
   selected,
@@ -32,29 +54,29 @@ export function CalendarGrid({
 
   return (
     <div>
-      <div className="flex items-center justify-between px-1 pb-3">
+      <div className="flex items-center justify-between px-1 pb-2">
         <button
           type="button"
           onClick={onPrevMonth}
           aria-label="Önceki ay"
-          className="flex h-11 w-11 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 active:bg-zinc-200"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-ink-soft active:bg-graphite-wash"
         >
           <ChevronLeftIcon className="h-5 w-5" />
         </button>
-        <h2 className="text-base font-medium capitalize text-zinc-900">
+        <h2 className="font-hand text-3xl capitalize leading-none text-ink">
           {formatMonthTitle(monthAnchor)}
         </h2>
         <button
           type="button"
           onClick={onNextMonth}
           aria-label="Sonraki ay"
-          className="flex h-11 w-11 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 active:bg-zinc-200"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-ink-soft active:bg-graphite-wash"
         >
           <ChevronRightIcon className="h-5 w-5" />
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-y-1 text-center text-xs font-medium text-zinc-400">
+      <div className="grid grid-cols-7 gap-y-1 text-center font-hand text-lg text-ink-faint">
         {WEEKDAYS.map((w) => (
           <div key={w} className="py-1">
             {w}
@@ -70,6 +92,11 @@ export function CalendarGrid({
           const isToday = isSameDay(day, today);
           const isSelected = isSameDay(day, selected);
           const kinds = Array.from(new Set(occ.map((o) => o.item.kind)));
+          const hasUrgentPayment = occ.some(
+            (o) =>
+              (o.item.kind === "bill" || o.item.kind === "installment") &&
+              o.item.importance === "yuksek"
+          );
 
           return (
             <button
@@ -80,16 +107,17 @@ export function CalendarGrid({
             >
               <span
                 className={[
-                  "flex h-11 w-11 items-center justify-center rounded-full text-sm",
-                  !inMonth ? "text-zinc-300" : "text-zinc-800",
-                  isSelected
-                    ? "bg-zinc-900 text-white"
-                    : isToday
-                      ? "border border-zinc-900 font-semibold"
-                      : "",
+                  "relative flex h-11 w-11 items-center justify-center text-sm",
+                  !inMonth ? "text-ink-faint/50" : "text-ink",
+                  isSelected ? "font-semibold" : "",
                 ].join(" ")}
               >
-                {day.getDate()}
+                {isSelected && <SketchRing color="var(--ink)" />}
+                {!isSelected && isToday && <SketchRing color="var(--pencil)" faint />}
+                <span className="relative">{day.getDate()}</span>
+                {hasUrgentPayment && (
+                  <FlameIcon className="pointer-events-none absolute -top-1 right-0.5 h-3.5 w-3.5 text-red-pen" />
+                )}
               </span>
               <span className="flex h-1.5 gap-0.5">
                 {kinds.slice(0, 4).map((k) => (

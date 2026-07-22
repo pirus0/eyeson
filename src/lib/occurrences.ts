@@ -5,6 +5,7 @@ import {
   getDate,
   isSameDay,
   toKey,
+  weekStart,
 } from "./date";
 import type { AnyItem, CompletionMap, Importance, PaymentItem, StoreData } from "./types";
 import { IMPORTANCE_THRESHOLD_DAYS, completionKey } from "./types";
@@ -40,7 +41,7 @@ function isPaymentDay(item: AnyItem, date: Date): boolean {
     return isSameDay(date, clamped);
   }
 
-  if (item.kind === "recurringTodo") {
+  if (item.kind === "recurringTodo" || item.kind === "weeklyTodo") {
     if (!item.active) return false;
     const start = fromKey(item.startDate);
     return date >= startOfDay(start);
@@ -48,6 +49,15 @@ function isPaymentDay(item: AnyItem, date: Date): boolean {
 
   // oneOff
   return isSameDay(date, fromKey(item.date));
+}
+
+/** Weekly todos share one completion across their whole Mon-Sun week (so checking
+ * it off on any day marks the week done, and it resets automatically next week). */
+function occurrenceKeyFor(item: AnyItem, date: Date, dateKey: string): string {
+  if (item.kind === "weeklyTodo") {
+    return completionKey(item.id, toKey(weekStart(date)));
+  }
+  return completionKey(item.id, dateKey);
 }
 
 function startOfDay(d: Date): Date {
@@ -73,6 +83,7 @@ export function occurrencesForRange(
     ...data.bills,
     ...data.installments,
     ...data.recurringTodos,
+    ...data.weeklyTodos,
     ...data.oneOffs,
   ];
   const result: Occurrence[] = [];
@@ -83,7 +94,7 @@ export function occurrencesForRange(
     const dateKey = toKey(date);
     for (const item of items) {
       if (!isPaymentDay(item, date)) continue;
-      const key = completionKey(item.id, dateKey);
+      const key = occurrenceKeyFor(item, date, dateKey);
       result.push({
         key,
         dateKey,

@@ -12,30 +12,39 @@ type Props = {
   onAdd: () => void;
 };
 
+const KIND_ORDER = {
+  bill: 0,
+  installment: 1,
+  recurringTodo: 2,
+  weeklyTodo: 3,
+  oneOff: 4,
+} as const;
+
 export function DayPanel({ day, occurrences, onAdd }: Props) {
   const { setDone, removeItem } = useStore();
 
-  const sorted = [...occurrences].sort((a, b) => {
-    const order = { bill: 0, installment: 1, recurringTodo: 2, oneOff: 3 } as const;
-    return order[a.item.kind] - order[b.item.kind];
-  });
+  const sorted = [...occurrences].sort(
+    (a, b) => KIND_ORDER[a.item.kind] - KIND_ORDER[b.item.kind]
+  );
 
   return (
-    <div className="border-t border-zinc-200 pt-3">
+    <div className="mt-2 border-t border-dashed border-ink-faint/60 pt-3">
       <div className="flex items-center justify-between px-1 pb-2">
-        <h3 className="text-sm font-medium capitalize text-zinc-700">{formatDayTitle(day)}</h3>
+        <h3 className="font-hand text-2xl capitalize text-ink-soft">{formatDayTitle(day)}</h3>
         <button
           type="button"
           onClick={onAdd}
           aria-label="Ekle"
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-900 text-white active:bg-zinc-700"
+          className="sketch-box sketch-rotate flex h-11 w-11 items-center justify-center text-ink active:bg-graphite-wash"
         >
           <PlusIcon className="h-5 w-5" />
         </button>
       </div>
 
       {sorted.length === 0 ? (
-        <p className="px-1 py-6 text-center text-sm text-zinc-400">Bu günde bir şey yok.</p>
+        <p className="px-1 py-6 text-center font-hand text-xl text-ink-faint">
+          Bu günde bir şey yok.
+        </p>
       ) : (
         <ul className="flex flex-col">
           {sorted.map((occ) => {
@@ -45,17 +54,15 @@ export function DayPanel({ day, occurrences, onAdd }: Props) {
             return (
               <li
                 key={occ.key}
-                className="flex items-center gap-3 border-b border-zinc-100 py-3 px-1 last:border-b-0"
+                className="flex items-center gap-3 border-b border-dashed border-ink-faint/40 py-3 px-1 last:border-b-0"
               >
                 <button
                   type="button"
-                  onClick={() => setDone(item.id, occ.dateKey, !occ.done)}
+                  onClick={() => setDone(occ.key, !occ.done)}
                   aria-label={occ.done ? "Tamamlanmadı olarak işaretle" : "Tamamlandı olarak işaretle"}
                   className={[
-                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border",
-                    occ.done
-                      ? "border-emerald-500 bg-emerald-500 text-white"
-                      : "border-zinc-300 text-transparent",
+                    "sketch-box flex h-11 w-11 shrink-0 items-center justify-center",
+                    occ.done ? "bg-ink/90 text-paper" : "text-transparent",
                   ].join(" ")}
                 >
                   <CheckIcon className="h-4 w-4" />
@@ -71,14 +78,14 @@ export function DayPanel({ day, occurrences, onAdd }: Props) {
                     )}
                     <p
                       className={[
-                        "truncate text-sm font-medium",
-                        occ.done ? "text-zinc-400 line-through" : "text-zinc-900",
+                        "truncate text-[15px] font-medium",
+                        occ.done ? "text-ink-faint line-through" : "text-ink",
                       ].join(" ")}
                     >
                       {itemTitle(item)}
                     </p>
                   </div>
-                  <p className="text-xs text-zinc-400">
+                  <p className="text-xs text-ink-faint">
                     {amount !== undefined ? formatAmount(amount) : null}
                     {occ.installmentProgress
                       ? `${amount !== undefined ? " · " : ""}${occ.installmentProgress.index}/${occ.installmentProgress.total}. taksit`
@@ -90,7 +97,7 @@ export function DayPanel({ day, occurrences, onAdd }: Props) {
                   type="button"
                   onClick={() => removeItem(item.kind, item.id)}
                   aria-label="Sil"
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-zinc-300 active:bg-zinc-100 active:text-zinc-600"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-faint active:bg-graphite-wash active:text-ink-soft"
                 >
                   <TrashIcon className="h-4 w-4" />
                 </button>
