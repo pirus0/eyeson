@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { computeReminders, type Reminder } from "@/lib/occurrences";
 import { formatShort } from "@/lib/date";
 import { formatAmount, itemTitle, IMPORTANCE_DOT_CLASS } from "@/lib/itemMeta";
@@ -131,6 +132,7 @@ function ReminderRow({
 export function BellMenu({ today, onSelectDate }: Props) {
   const { data, setDone } = useStore();
   const [open, setOpen] = useState(false);
+  useBodyScrollLock(open);
 
   const reminders = useMemo(
     () => computeReminders(data, data.completions, today),
@@ -155,7 +157,7 @@ export function BellMenu({ today, onSelectDate }: Props) {
 
       {open && (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-ink/20 sm:items-center">
-          <div className="sketch-box max-h-[85vh] w-full max-w-md overflow-y-auto bg-paper p-4 pb-8 shadow-[0_2px_0_var(--pencil)] sm:rounded-none">
+          <div className="sketch-box max-h-[85vh] w-full max-w-md overflow-y-auto overscroll-contain bg-paper p-4 pb-8 shadow-[0_2px_0_var(--pencil)] sm:rounded-none">
             <div className="flex items-center justify-between pb-2">
               <h2 className="font-hand text-2xl text-ink">Yaklaşan ödemeler</h2>
               <button

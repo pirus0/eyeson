@@ -45,7 +45,7 @@ export function CalendarApp() {
   if (!ready) return null;
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[env(safe-area-inset-bottom)]">
+    <div className="mx-auto flex min-h-svh w-full max-w-md flex-col px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[env(safe-area-inset-bottom)]">
       <header className="flex items-center justify-between pb-2">
         <h1 className="font-hand text-4xl text-ink">Eyes On</h1>
         <div className="flex items-center gap-1">

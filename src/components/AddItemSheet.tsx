@@ -6,6 +6,7 @@ import type { Importance } from "@/lib/types";
 import { IMPORTANCE_LABELS } from "@/lib/types";
 import { KIND_LABELS, type ItemKind } from "@/lib/itemMeta";
 import { useStore } from "@/lib/store";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { CloseIcon } from "./Icons";
 
 type Props = {
@@ -21,6 +22,7 @@ const inputClass =
 
 export function AddItemSheet({ defaultDate, onClose }: Props) {
   const { addBill, addInstallment, addRecurringTodo, addWeeklyTodo, addOneOff } = useStore();
+  useBodyScrollLock(true);
   const [kind, setKind] = useState<ItemKind>("bill");
 
   const [name, setName] = useState("");
@@ -65,7 +67,7 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-20 flex items-end justify-center bg-ink/20 sm:items-center">
-      <div className="sketch-box max-h-[90vh] w-full max-w-md overflow-y-auto bg-paper p-4 pb-8 shadow-[0_2px_0_var(--pencil)] sm:rounded-none">
+      <div className="sketch-box max-h-[90vh] w-full max-w-md overflow-y-auto overscroll-contain bg-paper p-4 pb-8 shadow-[0_2px_0_var(--pencil)] sm:rounded-none">
         <div className="flex items-center justify-between pb-2">
           <h2 className="font-hand text-2xl text-ink">Yeni kayıt</h2>
           <button
