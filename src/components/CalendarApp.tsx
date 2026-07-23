@@ -9,6 +9,7 @@ import { CalendarGrid } from "./CalendarGrid";
 import { DayPanel } from "./DayPanel";
 import { AddItemSheet } from "./AddItemSheet";
 import { BellMenu } from "./BellMenu";
+import { SettingsSheet } from "./SettingsSheet";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function CalendarApp() {
@@ -65,6 +66,7 @@ export function CalendarApp() {
         <h1 className="font-hand text-4xl text-ink">Eyes On</h1>
         <div className="flex items-center gap-1">
           <ThemeToggle />
+          <SettingsSheet />
           <BellMenu
             today={today}
             onSelectDate={(date) => {

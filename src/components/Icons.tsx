@@ -164,6 +164,15 @@ export function MoonIcon({ className }: IconProps) {
   );
 }
 
+export function CloudSyncIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M7 17a4 4 0 0 1-.4-7.98A5.5 5.5 0 0 1 17.4 8.1 4.2 4.2 0 0 1 17 17H7Z" />
+      <path d="M12 10.5v6M9.3 13.7 12 16.5l2.7-2.8" />
+    </svg>
+  );
+}
+
 export function DotIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" className={className} {...base}>
