@@ -9,6 +9,7 @@ export function emptyData(): StoreData {
     recurringTodos: [],
     weeklyTodos: [],
     oneOffs: [],
+    creditCards: [],
     completions: {},
   };
 }
@@ -25,6 +26,7 @@ export function loadData(): StoreData {
       recurringTodos: parsed.recurringTodos ?? [],
       weeklyTodos: parsed.weeklyTodos ?? [],
       oneOffs: parsed.oneOffs ?? [],
+      creditCards: parsed.creditCards ?? [],
       completions: parsed.completions ?? {},
     };
   } catch {

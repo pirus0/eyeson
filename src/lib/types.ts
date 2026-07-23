@@ -48,8 +48,20 @@ export type OneOff = {
   createdAt: string;
 };
 
-export type PaymentItem = Bill | Installment;
-export type AnyItem = Bill | Installment | RecurringTodo | WeeklyTodo | OneOff;
+export type CreditCard = {
+  id: string;
+  kind: "creditCard";
+  name: string;
+  amount?: number;
+  statementDay: number; // 1-31, hesap kesim günü
+  dueDay: number; // 1-31, son ödeme günü — may fall in the month after statementDay
+  importance: Importance; // urgency applies to the due date only
+  createdAt: string;
+  active: boolean;
+};
+
+export type PaymentItem = Bill | Installment | CreditCard;
+export type AnyItem = Bill | Installment | RecurringTodo | WeeklyTodo | OneOff | CreditCard;
 
 export type Completion = {
   done: boolean;
@@ -65,6 +77,7 @@ export type StoreData = {
   recurringTodos: RecurringTodo[];
   weeklyTodos: WeeklyTodo[];
   oneOffs: OneOff[];
+  creditCards: CreditCard[];
   completions: CompletionMap;
 };
 

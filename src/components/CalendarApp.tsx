@@ -1,30 +1,41 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { addMonths, monthGrid } from "@/lib/date";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { addDays, addMonths, isSameDay, monthGrid } from "@/lib/date";
 import { occurrencesForRange, occurrencesForDay } from "@/lib/occurrences";
 import { useStore } from "@/lib/store";
+import { useToday } from "@/lib/useToday";
 import { CalendarGrid } from "./CalendarGrid";
 import { DayPanel } from "./DayPanel";
 import { AddItemSheet } from "./AddItemSheet";
 import { BellMenu } from "./BellMenu";
 import { ThemeToggle } from "./ThemeToggle";
 
-function startOfToday(): Date {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-}
-
 export function CalendarApp() {
   const { data, ready } = useStore();
-  const today = useMemo(() => startOfToday(), []);
+  const today = useToday();
   const [monthAnchor, setMonthAnchor] = useState(today);
   const [selected, setSelected] = useState(today);
   const [addOpen, setAddOpen] = useState(false);
 
+  // If the day rolls over while the app is open, follow along — but only
+  // for whichever of these was still parked on the old "today"; a month or
+  // day the user deliberately navigated to is left alone.
+  const prevTodayRef = useRef(today);
+  useEffect(() => {
+    const prevToday = prevTodayRef.current;
+    if (!isSameDay(prevToday, today)) {
+      setMonthAnchor((m) => (isSameDay(m, prevToday) ? today : m));
+      setSelected((s) => (isSameDay(s, prevToday) ? today : s));
+      prevTodayRef.current = today;
+    }
+  }, [today]);
+
   const days = useMemo(() => monthGrid(monthAnchor), [monthAnchor]);
   const rangeStart = days[0];
-  const rangeEnd = days[days.length - 1];
+  // Padded 14 days past the visible grid so CalendarGrid's next-month peek
+  // (pull-up preview) has real occurrence data too, not just bare numbers.
+  const rangeEnd = useMemo(() => addDays(days[days.length - 1], 14), [days]);
 
   const occurrencesByDay = useMemo(() => {
     const occs = occurrencesForRange(data, data.completions, rangeStart, rangeEnd);

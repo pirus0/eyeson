@@ -7,7 +7,7 @@ import {
   toKey,
   weekStart,
 } from "./date";
-import type { AnyItem, CompletionMap, Importance, PaymentItem, StoreData } from "./types";
+import type { AnyItem, CompletionMap, CreditCard, Importance, PaymentItem, StoreData } from "./types";
 import { IMPORTANCE_THRESHOLD_DAYS, completionKey } from "./types";
 
 export type Occurrence = {
@@ -18,6 +18,8 @@ export type Occurrence = {
   done: boolean;
   /** 1-based index and total count, only set for installments */
   installmentProgress?: { index: number; total: number };
+  /** Only set for credit card occurrences: which half of the cycle this is. */
+  role?: "statement" | "due";
 };
 
 function isPaymentDay(item: AnyItem, date: Date): boolean {
@@ -47,8 +49,40 @@ function isPaymentDay(item: AnyItem, date: Date): boolean {
     return date >= startOfDay(start);
   }
 
-  // oneOff
-  return isSameDay(date, fromKey(item.date));
+  if (item.kind === "oneOff") {
+    return isSameDay(date, fromKey(item.date));
+  }
+
+  // creditCard is generated separately in occurrencesForRange (two dates a
+  // month, tracked with their own completion keys) — never reaches here.
+  return false;
+}
+
+function isCreditCardDay(item: CreditCard, day: number, date: Date): boolean {
+  if (!item.active) return false;
+  const created = fromKey(item.createdAt.slice(0, 10));
+  if (date < startOfDay(created)) return false;
+  const clamped = clampToMonth(date.getFullYear(), date.getMonth(), day);
+  return isSameDay(date, clamped);
+}
+
+/** The other date in a credit card's cycle relative to a given occurrence —
+ * e.g. from the due-date row, which statement date produced it. Rolls into
+ * the neighboring month when the day numbers wrap (statement late in the
+ * month, due date early in the next one, the common case). */
+export function creditCardCompanionDate(
+  item: CreditCard,
+  occDate: Date,
+  role: "statement" | "due"
+): Date {
+  const y = occDate.getFullYear();
+  const m = occDate.getMonth();
+  if (role === "statement") {
+    const targetMonth = item.dueDay >= item.statementDay ? m : m + 1;
+    return clampToMonth(y, targetMonth, item.dueDay);
+  }
+  const targetMonth = item.statementDay <= item.dueDay ? m : m - 1;
+  return clampToMonth(y, targetMonth, item.statementDay);
 }
 
 /** Weekly todos share one completion across their whole Mon-Sun week (so checking
@@ -85,6 +119,7 @@ export function occurrencesForRange(
     ...data.recurringTodos,
     ...data.weeklyTodos,
     ...data.oneOffs,
+    ...data.creditCards,
   ];
   const result: Occurrence[] = [];
   const dayCount = differenceInCalendarDays(rangeEnd, rangeStart) + 1;
@@ -93,6 +128,33 @@ export function occurrencesForRange(
     const date = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + i);
     const dateKey = toKey(date);
     for (const item of items) {
+      if (item.kind === "creditCard") {
+        // Two independent monthly recurrences (statement, due), tracked with
+        // their own completion keys so marking one doesn't affect the other.
+        if (isCreditCardDay(item, item.statementDay, date)) {
+          const key = completionKey(`${item.id}:statement`, dateKey);
+          result.push({
+            key,
+            dateKey,
+            date,
+            item,
+            done: completions[key]?.done ?? false,
+            role: "statement",
+          });
+        }
+        if (isCreditCardDay(item, item.dueDay, date)) {
+          const key = completionKey(`${item.id}:due`, dateKey);
+          result.push({
+            key,
+            dateKey,
+            date,
+            item,
+            done: completions[key]?.done ?? false,
+            role: "due",
+          });
+        }
+        continue;
+      }
       if (!isPaymentDay(item, date)) continue;
       const key = occurrenceKeyFor(item, date, dateKey);
       result.push({
@@ -130,7 +192,9 @@ export function computeReminders(
   completions: CompletionMap,
   today: Date
 ): Reminder[] {
-  const rangeStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 45);
+  // 400 days back so a bill that's been forgotten for months still surfaces
+  // as overdue instead of silently aging out of the reminder list.
+  const rangeStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 400);
   const rangeEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 31);
   const occurrences = occurrencesForRange(data, completions, rangeStart, rangeEnd);
   const todayStart = startOfDay(today);
@@ -138,7 +202,10 @@ export function computeReminders(
   const reminders: Reminder[] = [];
   for (const occ of occurrences) {
     const item = occ.item;
-    if (item.kind !== "bill" && item.kind !== "installment") continue;
+    if (item.kind !== "bill" && item.kind !== "installment" && item.kind !== "creditCard") continue;
+    // The statement date is informational (nothing to pay yet) — only the
+    // due date carries urgency, so only it becomes a reminder.
+    if (item.kind === "creditCard" && occ.role !== "due") continue;
     if (occ.done) continue;
     const daysUntilDue = differenceInCalendarDays(occ.date, todayStart);
     const overdue = daysUntilDue < 0;

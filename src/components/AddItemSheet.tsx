@@ -14,14 +14,36 @@ type Props = {
   onClose: () => void;
 };
 
-const KIND_ORDER: ItemKind[] = ["bill", "installment", "recurringTodo", "weeklyTodo", "oneOff"];
+const KIND_ORDER: ItemKind[] = [
+  "bill",
+  "installment",
+  "creditCard",
+  "recurringTodo",
+  "weeklyTodo",
+  "oneOff",
+];
 const TITLE_ONLY_KINDS: ItemKind[] = ["recurringTodo", "weeklyTodo", "oneOff"];
 
 const inputClass =
   "min-h-11 border-0 border-b-[1.5px] border-ink-faint/70 bg-transparent px-1 text-base text-ink placeholder:text-ink-faint/70 focus:border-ink focus:outline-none";
 
+function clampInt(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+/** Empty/garbage input becomes "no amount" for optional fields rather than
+ * silently submitting NaN or a negative number. */
+function parseAmount(raw: string): number | undefined {
+  if (!raw) return undefined;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return n;
+}
+
 export function AddItemSheet({ defaultDate, onClose }: Props) {
-  const { addBill, addInstallment, addRecurringTodo, addWeeklyTodo, addOneOff } = useStore();
+  const { addBill, addInstallment, addCreditCard, addRecurringTodo, addWeeklyTodo, addOneOff } =
+    useStore();
   useBodyScrollLock(true);
   const [kind, setKind] = useState<ItemKind>("bill");
 
@@ -31,25 +53,39 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
   const [importance, setImportance] = useState<Importance>("orta");
   const [startDate, setStartDate] = useState(toKey(defaultDate));
   const [count, setCount] = useState(3);
+  const [statementDay, setStatementDay] = useState(getDate(defaultDate));
+  // Just a starting suggestion (typical ~10 day gap) — the user adjusts to
+  // match their actual card.
+  const [dueDay, setDueDay] = useState(() => Math.min(31, getDate(defaultDate) + 10));
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
 
+    const safeAmount = parseAmount(amount);
+
     if (kind === "bill") {
       addBill({
         name: name.trim(),
-        amount: amount ? Number(amount) : undefined,
-        dayOfMonth,
+        amount: safeAmount,
+        dayOfMonth: clampInt(dayOfMonth, 1, 31),
         importance,
       });
     } else if (kind === "installment") {
-      if (!amount || count < 1) return;
+      if (safeAmount === undefined || count < 1) return;
       addInstallment({
         name: name.trim(),
-        amount: Number(amount),
+        amount: safeAmount,
         startDate,
-        count,
+        count: clampInt(count, 1, 60),
+        importance,
+      });
+    } else if (kind === "creditCard") {
+      addCreditCard({
+        name: name.trim(),
+        amount: safeAmount,
+        statementDay: clampInt(statementDay, 1, 31),
+        dueDay: clampInt(dueDay, 1, 31),
         importance,
       });
     } else if (kind === "recurringTodo") {
@@ -62,7 +98,7 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
     onClose();
   }
 
-  const isPayment = kind === "bill" || kind === "installment";
+  const isPayment = kind === "bill" || kind === "installment" || kind === "creditCard";
   const isTitleOnly = TITLE_ONLY_KINDS.includes(kind);
 
   return (
@@ -104,13 +140,21 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
               onChange={(e) => setName(e.target.value)}
               required
               className={inputClass}
-              placeholder={kind === "bill" ? "Örn. İnternet" : kind === "installment" ? "Örn. Telefon taksiti" : "Örn. İlaç al"}
+              placeholder={
+                kind === "bill"
+                  ? "Örn. İnternet"
+                  : kind === "installment"
+                    ? "Örn. Telefon taksiti"
+                    : kind === "creditCard"
+                      ? "Örn. Bonus Kart"
+                      : "Örn. İlaç al"
+              }
             />
           </label>
 
           {isPayment && (
             <label className="flex flex-col gap-1 text-sm text-ink-soft">
-              Tutar {kind === "bill" ? "(opsiyonel)" : ""}
+              Tutar {kind === "bill" || kind === "creditCard" ? "(opsiyonel)" : ""}
               <input
                 type="number"
                 inputMode="decimal"
@@ -139,6 +183,40 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
                 className={inputClass}
               />
             </label>
+          )}
+
+          {kind === "creditCard" && (
+            <>
+              <label className="flex flex-col gap-1 text-sm text-ink-soft">
+                Hesap kesim günü
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={31}
+                  value={statementDay}
+                  onChange={(e) => setStatementDay(Number(e.target.value))}
+                  required
+                  className={inputClass}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-ink-soft">
+                Son ödeme günü
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={31}
+                  value={dueDay}
+                  onChange={(e) => setDueDay(Number(e.target.value))}
+                  required
+                  className={inputClass}
+                />
+              </label>
+              <p className="text-xs text-ink-faint">
+                Takvimde iki gün de görünür; alev ve hatırlatıcı sadece son ödeme gününde olur.
+              </p>
+            </>
           )}
 
           {kind === "installment" && (

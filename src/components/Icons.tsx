@@ -57,6 +57,14 @@ export function ChevronRightIcon({ className }: IconProps) {
   );
 }
 
+export function ChevronUpIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M5 15l7-7 7 7" />
+    </svg>
+  );
+}
+
 export function TrashIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" className={className} {...base}>

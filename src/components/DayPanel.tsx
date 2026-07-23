@@ -1,7 +1,8 @@
 "use client";
 
 import type { Occurrence } from "@/lib/occurrences";
-import { formatDayTitle } from "@/lib/date";
+import { creditCardCompanionDate } from "@/lib/occurrences";
+import { formatDayTitle, formatShort } from "@/lib/date";
 import { formatAmount, itemTitle, IMPORTANCE_DOT_CLASS } from "@/lib/itemMeta";
 import { CheckIcon, PlusIcon, TrashIcon } from "./Icons";
 import { useStore } from "@/lib/store";
@@ -15,15 +16,19 @@ type Props = {
 const KIND_ORDER = {
   bill: 0,
   installment: 1,
-  recurringTodo: 2,
-  weeklyTodo: 3,
-  oneOff: 4,
+  creditCard: 2,
+  recurringTodo: 3,
+  weeklyTodo: 4,
+  oneOff: 5,
 } as const;
 
 /** A very-important payment that's been handled sinks to the bottom of the
  * day's list instead of staying up top where the flame drew attention to it. */
 function isSettledUrgent(occ: Occurrence): boolean {
   const { item } = occ;
+  if (item.kind === "creditCard") {
+    return occ.role === "due" && item.importance === "yuksek" && occ.done;
+  }
   return (
     (item.kind === "bill" || item.kind === "installment") &&
     item.importance === "yuksek" &&
@@ -63,24 +68,42 @@ export function DayPanel({ day, occurrences, onAdd }: Props) {
         <ul className="flex flex-col">
           {sorted.map((occ) => {
             const { item } = occ;
-            const amount = item.kind === "bill" || item.kind === "installment" ? item.amount : undefined;
-            const importance = item.kind === "bill" || item.kind === "installment" ? item.importance : undefined;
+            const isCreditCard = item.kind === "creditCard";
+            const isStatementRow = isCreditCard && occ.role === "statement";
+            const amount =
+              item.kind === "bill" || item.kind === "installment" || isCreditCard
+                ? item.amount
+                : undefined;
+            const importance =
+              item.kind === "bill" || item.kind === "installment" || (isCreditCard && occ.role === "due")
+                ? item.importance
+                : undefined;
+            const companionLabel = isCreditCard
+              ? `${occ.role === "due" ? "Kesim" : "Son ödeme"}: ${formatShort(
+                  creditCardCompanionDate(item, occ.date, occ.role!)
+                )}`
+              : null;
+
             return (
               <li
                 key={occ.key}
                 className="flex items-center gap-3 border-b border-dashed border-ink-faint/40 py-3 px-1 last:border-b-0"
               >
-                <button
-                  type="button"
-                  onClick={() => setDone(occ.key, !occ.done)}
-                  aria-label={occ.done ? "Tamamlanmadı olarak işaretle" : "Tamamlandı olarak işaretle"}
-                  className={[
-                    "sketch-box flex h-11 w-11 shrink-0 items-center justify-center",
-                    occ.done ? "bg-ink/90 text-paper" : "text-transparent",
-                  ].join(" ")}
-                >
-                  <CheckIcon className="h-4 w-4" />
-                </button>
+                {isStatementRow ? (
+                  <span className="h-11 w-11 shrink-0" aria-hidden />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setDone(occ.key, !occ.done)}
+                    aria-label={occ.done ? "Tamamlanmadı olarak işaretle" : "Tamamlandı olarak işaretle"}
+                    className={[
+                      "sketch-box flex h-11 w-11 shrink-0 items-center justify-center",
+                      occ.done ? "bg-ink/90 text-paper" : "text-transparent",
+                    ].join(" ")}
+                  >
+                    <CheckIcon className="h-4 w-4" />
+                  </button>
+                )}
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -97,6 +120,7 @@ export function DayPanel({ day, occurrences, onAdd }: Props) {
                       ].join(" ")}
                     >
                       {itemTitle(item)}
+                      {isStatementRow && " · kesim"}
                     </p>
                   </div>
                   <p className="text-xs text-ink-faint">
@@ -104,6 +128,7 @@ export function DayPanel({ day, occurrences, onAdd }: Props) {
                     {occ.installmentProgress
                       ? `${amount !== undefined ? " · " : ""}${occ.installmentProgress.index}/${occ.installmentProgress.total}. taksit`
                       : null}
+                    {companionLabel ? `${amount !== undefined ? " · " : ""}${companionLabel}` : null}
                   </p>
                 </div>
 

@@ -10,6 +10,7 @@ import {
 } from "react";
 import type {
   Bill,
+  CreditCard,
   Importance,
   Installment,
   OneOff,
@@ -42,8 +43,15 @@ type StoreContextValue = {
   addRecurringTodo: (input: { title: string; startDate: string }) => void;
   addWeeklyTodo: (input: { title: string; startDate: string }) => void;
   addOneOff: (input: { title: string; date: string }) => void;
+  addCreditCard: (input: {
+    name: string;
+    amount?: number;
+    statementDay: number;
+    dueDay: number;
+    importance: Importance;
+  }) => void;
   removeItem: (
-    kind: "bill" | "installment" | "recurringTodo" | "weeklyTodo" | "oneOff",
+    kind: "bill" | "installment" | "recurringTodo" | "weeklyTodo" | "oneOff" | "creditCard",
     id: string
   ) => void;
   toggleActive: (kind: "bill" | "recurringTodo" | "weeklyTodo", id: string) => void;
@@ -132,6 +140,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setData((d) => ({ ...d, oneOffs: [...d.oneOffs, oneOff] }));
   }, []);
 
+  const addCreditCard = useCallback<StoreContextValue["addCreditCard"]>((input) => {
+    const card: CreditCard = {
+      id: makeId(),
+      kind: "creditCard",
+      name: input.name,
+      amount: input.amount,
+      statementDay: input.statementDay,
+      dueDay: input.dueDay,
+      importance: input.importance,
+      createdAt: new Date().toISOString(),
+      active: true,
+    };
+    setData((d) => ({ ...d, creditCards: [...d.creditCards, card] }));
+  }, []);
+
   const removeItem = useCallback<StoreContextValue["removeItem"]>((kind, id) => {
     setData((d) => {
       switch (kind) {
@@ -145,6 +168,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           return { ...d, weeklyTodos: d.weeklyTodos.filter((x) => x.id !== id) };
         case "oneOff":
           return { ...d, oneOffs: d.oneOffs.filter((x) => x.id !== id) };
+        case "creditCard":
+          return { ...d, creditCards: d.creditCards.filter((x) => x.id !== id) };
       }
     });
   }, []);
@@ -191,6 +216,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       addRecurringTodo,
       addWeeklyTodo,
       addOneOff,
+      addCreditCard,
       removeItem,
       toggleActive,
       setDone,
@@ -203,6 +229,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       addRecurringTodo,
       addWeeklyTodo,
       addOneOff,
+      addCreditCard,
       removeItem,
       toggleActive,
       setDone,
