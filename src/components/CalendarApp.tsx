@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addDays, addMonths, isSameDay, monthGrid } from "@/lib/date";
+import { addMonths, isSameDay, monthGrid } from "@/lib/date";
 import { occurrencesForRange, occurrencesForDay } from "@/lib/occurrences";
 import { useStore } from "@/lib/store";
 import { useToday } from "@/lib/useToday";
@@ -33,9 +33,13 @@ export function CalendarApp() {
 
   const days = useMemo(() => monthGrid(monthAnchor), [monthAnchor]);
   const rangeStart = days[0];
-  // Padded 14 days past the visible grid so CalendarGrid's next-month peek
-  // (pull-up preview) has real occurrence data too, not just bare numbers.
-  const rangeEnd = useMemo(() => addDays(days[days.length - 1], 14), [days]);
+  // Extends through the end of next month's grid so CalendarGrid's
+  // pull-up peek (which now shows the whole next month) has real
+  // occurrence data too, not just bare numbers.
+  const rangeEnd = useMemo(() => {
+    const nextMonthDays = monthGrid(addMonths(monthAnchor, 1));
+    return nextMonthDays[nextMonthDays.length - 1];
+  }, [monthAnchor]);
 
   const occurrencesByDay = useMemo(() => {
     const occs = occurrencesForRange(data, data.completions, rangeStart, rangeEnd);

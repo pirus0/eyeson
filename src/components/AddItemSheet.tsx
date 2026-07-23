@@ -7,7 +7,7 @@ import { IMPORTANCE_LABELS } from "@/lib/types";
 import { KIND_LABELS, type ItemKind } from "@/lib/itemMeta";
 import { useStore } from "@/lib/store";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
-import { CloseIcon } from "./Icons";
+import { ChevronUpIcon, CloseIcon } from "./Icons";
 
 type Props = {
   defaultDate: Date;
@@ -116,21 +116,23 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 pb-4">
-          {KIND_ORDER.map((k) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => setKind(k)}
-              className={[
-                "sketch-box min-h-11 px-3 py-2 text-sm font-medium",
-                kind === k ? "bg-ink text-paper" : "text-ink-soft",
-              ].join(" ")}
+        <label className="flex flex-col gap-1 pb-4 text-sm text-ink-soft">
+          Tür
+          <div className="relative">
+            <select
+              value={kind}
+              onChange={(e) => setKind(e.target.value as ItemKind)}
+              className="sketch-box min-h-11 w-full appearance-none bg-paper px-3 pr-10 text-base text-ink focus:outline-none"
             >
-              {KIND_LABELS[k]}
-            </button>
-          ))}
-        </div>
+              {KIND_ORDER.map((k) => (
+                <option key={k} value={k}>
+                  {KIND_LABELS[k]}
+                </option>
+              ))}
+            </select>
+            <ChevronUpIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 rotate-180 text-ink-soft" />
+          </div>
+        </label>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1 text-sm text-ink-soft">

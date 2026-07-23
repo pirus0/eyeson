@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addMonths, isSameDay, monthGrid, formatMonthTitle, toKey } from "@/lib/date";
 import { ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, FlameIcon } from "./Icons";
 import type { Occurrence } from "@/lib/occurrences";
@@ -8,9 +8,10 @@ import { KIND_DOT_CLASS } from "@/lib/itemMeta";
 
 const WEEKDAYS = ["Pt", "Sa", "Ça", "Pe", "Cu", "Ct", "Pz"];
 
-/** How far (px) pushing up on the grid reveals next month's first two weeks
- * — roughly the height of two day rows. */
-const MAX_PEEK = 128;
+/** Stable reference for "no occurrences that day" so DayCell's memo doesn't
+ * see a "changed" prop on every render just because `?? []` made a new
+ * empty array — most cells have no occurrences, so this matters a lot. */
+const EMPTY_OCC: Occurrence[] = [];
 
 type Props = {
   monthAnchor: Date;
@@ -62,8 +63,11 @@ type DayCellProps = {
 };
 
 /** One calendar day — used both by the live month grid and by the peeked
- * next-month preview, so the two always look and behave identically. */
-function DayCell({ day, occ, inMonth, isToday, isSelected, onSelect }: DayCellProps) {
+ * next-month preview, so the two always look and behave identically.
+ * Memoized: during the pull-up drag only `peek`'s height changes, none of
+ * these props do, so this should skip re-rendering entirely on every
+ * pointermove instead of re-computing all ~80 cells per frame. */
+const DayCell = memo(function DayCell({ day, occ, inMonth, isToday, isSelected, onSelect }: DayCellProps) {
   const kinds = Array.from(new Set(occ.map((o) => o.item.kind)));
   const urgentOccs = occ.filter((o) => {
     if (o.item.kind === "bill" || o.item.kind === "installment") {
@@ -121,7 +125,7 @@ function DayCell({ day, occ, inMonth, isToday, isSelected, onSelect }: DayCellPr
       </span>
     </button>
   );
-}
+});
 
 export function CalendarGrid({
   monthAnchor,
@@ -137,7 +141,9 @@ export function CalendarGrid({
 
   const nextMonthAnchor = useMemo(() => addMonths(monthAnchor, 1), [monthAnchor]);
   const nextMonth = nextMonthAnchor.getMonth();
-  const nextMonthPeekDays = useMemo(() => monthGrid(nextMonthAnchor).slice(0, 14), [nextMonthAnchor]);
+  // Full month now (not just a two-week teaser) — the user wants to be able
+  // to pull all the way through to the end of next month.
+  const nextMonthDays = useMemo(() => monthGrid(nextMonthAnchor), [nextMonthAnchor]);
 
   // Pushing up on the grid (the same gesture that scrolls a page down to
   // reveal what's further along) peeks at next month without changing
@@ -146,15 +152,34 @@ export function CalendarGrid({
   // open (so the revealed days become tappable), short of it it springs
   // back closed. Dragging again — in either direction — adjusts from
   // wherever the peek currently sits, so an open peek can be pulled shut.
-  const PEEK_COMMIT_THRESHOLD = MAX_PEEK * 0.4;
   const [peek, setPeek] = useState(0);
   const [peeking, setPeeking] = useState(false);
   const startYRef = useRef(0);
   const peekAtStartRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+  const pendingPeekRef = useRef<number | null>(null);
+
+  // Measured from the actual rendered content instead of a guessed pixel
+  // count, so a 4-week or 6-week month both open to exactly their real
+  // height with no cropping or leftover empty space.
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [maxPeek, setMaxPeek] = useState(0);
+  useLayoutEffect(() => {
+    if (previewRef.current) setMaxPeek(previewRef.current.scrollHeight);
+  }, [nextMonthDays]);
+
+  const peekCommitThreshold = maxPeek * 0.4;
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   function handlePeekPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     startYRef.current = e.clientY;
     peekAtStartRef.current = peek;
+    pendingPeekRef.current = null;
     setPeeking(true);
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -168,19 +193,41 @@ export function CalendarGrid({
   function handlePeekPointerMove(e: React.PointerEvent<HTMLDivElement>) {
     if (!peeking) return;
     const delta = startYRef.current - e.clientY;
-    setPeek(Math.max(0, Math.min(MAX_PEEK, peekAtStartRef.current + delta)));
+    pendingPeekRef.current = Math.max(0, Math.min(maxPeek, peekAtStartRef.current + delta));
+    // Coalesce potentially dozens of pointermove events into one state
+    // update per animation frame — this is what was causing the stutter,
+    // since every raw event was re-rendering the whole grid.
+    if (rafRef.current === null) {
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        if (pendingPeekRef.current !== null) setPeek(pendingPeekRef.current);
+      });
+    }
   }
 
   function endPeek() {
     setPeeking(false);
-    setPeek((current) => (current > PEEK_COMMIT_THRESHOLD ? MAX_PEEK : 0));
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    // Cancelling the pending frame above would otherwise throw away the
+    // freshest drag position on a fast flick (move immediately followed by
+    // release, faster than one animation frame) — read it directly instead
+    // of trusting committed state, which could still be a frame stale.
+    const finalPeek = pendingPeekRef.current ?? peek;
+    pendingPeekRef.current = null;
+    setPeek(finalPeek > peekCommitThreshold ? maxPeek : 0);
   }
 
-  function handleSelectFromPeek(day: Date) {
-    onSelect(day);
-    setPeeking(false);
-    setPeek(0);
-  }
+  const handleSelectFromPeek = useCallback(
+    (day: Date) => {
+      onSelect(day);
+      setPeeking(false);
+      setPeek(0);
+    },
+    [onSelect]
+  );
 
   return (
     <div>
@@ -228,7 +275,7 @@ export function CalendarGrid({
             <DayCell
               key={key}
               day={day}
-              occ={occurrencesByDay.get(key) ?? []}
+              occ={occurrencesByDay.get(key) ?? EMPTY_OCC}
               inMonth={day.getMonth() === currentMonth}
               isToday={isSameDay(day, today)}
               isSelected={isSameDay(day, selected)}
@@ -251,24 +298,26 @@ export function CalendarGrid({
           transition: peeking ? "none" : "height 200ms ease",
         }}
       >
-        <p className="pt-2 text-center font-hand text-lg capitalize text-ink-faint/70">
-          {formatMonthTitle(nextMonthAnchor)}
-        </p>
-        <div className="grid grid-cols-7 gap-y-1">
-          {nextMonthPeekDays.map((day) => {
-            const key = toKey(day);
-            return (
-              <DayCell
-                key={key}
-                day={day}
-                occ={occurrencesByDay.get(key) ?? []}
-                inMonth={day.getMonth() === nextMonth}
-                isToday={isSameDay(day, today)}
-                isSelected={isSameDay(day, selected)}
-                onSelect={handleSelectFromPeek}
-              />
-            );
-          })}
+        <div ref={previewRef}>
+          <p className="pt-2 text-center font-hand text-lg capitalize text-ink-faint/70">
+            {formatMonthTitle(nextMonthAnchor)}
+          </p>
+          <div className="grid grid-cols-7 gap-y-1">
+            {nextMonthDays.map((day) => {
+              const key = toKey(day);
+              return (
+                <DayCell
+                  key={key}
+                  day={day}
+                  occ={occurrencesByDay.get(key) ?? EMPTY_OCC}
+                  inMonth={day.getMonth() === nextMonth}
+                  isToday={isSameDay(day, today)}
+                  isSelected={isSameDay(day, selected)}
+                  onSelect={handleSelectFromPeek}
+                />
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
