@@ -1,12 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
-import { isSameDay, monthGrid, formatMonthTitle, toKey } from "@/lib/date";
+import { useMemo, useRef, useState } from "react";
+import { addMonths, isSameDay, monthGrid, formatMonthTitle, toKey } from "@/lib/date";
 import { ChevronLeftIcon, ChevronRightIcon, FlameIcon } from "./Icons";
 import type { Occurrence } from "@/lib/occurrences";
 import { KIND_DOT_CLASS } from "@/lib/itemMeta";
 
 const WEEKDAYS = ["Pt", "Sa", "Ça", "Pe", "Cu", "Ct", "Pz"];
+
+/** How far (px) pulling down on the grid reveals next month's first two
+ * weeks — roughly the height of two day rows. */
+const MAX_PEEK = 128;
 
 type Props = {
   monthAnchor: Date;
@@ -60,6 +64,38 @@ export function CalendarGrid({
   const days = useMemo(() => monthGrid(monthAnchor), [monthAnchor]);
   const currentMonth = monthAnchor.getMonth();
 
+  const nextMonthAnchor = useMemo(() => addMonths(monthAnchor, 1), [monthAnchor]);
+  const nextMonthPeekDays = useMemo(() => monthGrid(nextMonthAnchor).slice(0, 14), [nextMonthAnchor]);
+
+  // Pulling down on the grid peeks at next month without actually navigating;
+  // it always springs back on release (or as soon as the drag heads back up).
+  const [peek, setPeek] = useState(0);
+  const [peeking, setPeeking] = useState(false);
+  const startYRef = useRef(0);
+
+  function handlePeekPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    startYRef.current = e.clientY;
+    setPeeking(true);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Capture is best-effort — without it the drag still mostly works as
+      // long as the finger stays over the grid, just less robust once it
+      // strays past the grid's bottom edge into the peek area below.
+    }
+  }
+
+  function handlePeekPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!peeking) return;
+    const delta = e.clientY - startYRef.current;
+    setPeek(Math.max(0, Math.min(MAX_PEEK, delta)));
+  }
+
+  function endPeek() {
+    setPeeking(false);
+    setPeek(0);
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between px-1 pb-2">
@@ -92,7 +128,14 @@ export function CalendarGrid({
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-y-1">
+      <div
+        className="grid grid-cols-7 gap-y-1"
+        style={{ touchAction: "none" }}
+        onPointerDown={handlePeekPointerDown}
+        onPointerMove={handlePeekPointerMove}
+        onPointerUp={endPeek}
+        onPointerCancel={endPeek}
+      >
         {days.map((day) => {
           const key = toKey(day);
           const occ = occurrencesByDay.get(key) ?? [];
@@ -152,6 +195,28 @@ export function CalendarGrid({
             </button>
           );
         })}
+      </div>
+
+      <div
+        className="overflow-hidden"
+        style={{
+          height: peek,
+          transition: peeking ? "none" : "height 200ms ease",
+        }}
+      >
+        <p className="pt-2 text-center font-hand text-lg capitalize text-ink-faint/70">
+          {formatMonthTitle(nextMonthAnchor)}
+        </p>
+        <div className="pointer-events-none grid grid-cols-7 gap-y-1 opacity-60">
+          {nextMonthPeekDays.map((day) => (
+            <span
+              key={toKey(day)}
+              className="flex h-11 w-11 items-center justify-center text-sm text-ink-faint"
+            >
+              {day.getDate()}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );
