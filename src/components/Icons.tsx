@@ -106,10 +106,19 @@ export function FlameIcon({ className }: IconProps) {
         d="M11.6 2.8c-1.6 3-4 5.4-4.2 8.6"
         fill="none"
         stroke="currentColor"
-        strokeWidth="0.9"
+        strokeWidth="1"
         strokeLinecap="round"
-        opacity="0.45"
+        opacity="0.55"
         transform="rotate(3 11 8)"
+      />
+      <path
+        d="M12.6 3.4c1.1 2.6 2.6 4.6 2.7 7.6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="0.8"
+        strokeLinecap="round"
+        opacity="0.4"
+        transform="rotate(-4 13 8)"
       />
     </svg>
   );

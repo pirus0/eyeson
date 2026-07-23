@@ -20,12 +20,26 @@ const KIND_ORDER = {
   oneOff: 4,
 } as const;
 
+/** A very-important payment that's been handled sinks to the bottom of the
+ * day's list instead of staying up top where the flame drew attention to it. */
+function isSettledUrgent(occ: Occurrence): boolean {
+  const { item } = occ;
+  return (
+    (item.kind === "bill" || item.kind === "installment") &&
+    item.importance === "yuksek" &&
+    occ.done
+  );
+}
+
 export function DayPanel({ day, occurrences, onAdd }: Props) {
   const { setDone, removeItem } = useStore();
 
-  const sorted = [...occurrences].sort(
-    (a, b) => KIND_ORDER[a.item.kind] - KIND_ORDER[b.item.kind]
-  );
+  const sorted = [...occurrences].sort((a, b) => {
+    const aSettled = isSettledUrgent(a);
+    const bSettled = isSettledUrgent(b);
+    if (aSettled !== bSettled) return aSettled ? 1 : -1;
+    return KIND_ORDER[a.item.kind] - KIND_ORDER[b.item.kind];
+  });
 
   return (
     <div className="mt-2 border-t border-dashed border-ink-faint/60 pt-3">

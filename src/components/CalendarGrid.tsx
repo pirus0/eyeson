@@ -18,7 +18,8 @@ type Props = {
   onNextMonth: () => void;
 };
 
-/** A circle drawn "twice" with a slight mismatch, like a pen mark on paper. */
+/** A circle drawn two or three times with a slight mismatch each pass, like a
+ * pen retracing a line unevenly on paper. */
 function SketchRing({ color, faint = false }: { color: string; faint?: boolean }) {
   return (
     <svg viewBox="0 0 44 44" className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
@@ -30,11 +31,18 @@ function SketchRing({ color, faint = false }: { color: string; faint?: boolean }
         transform="rotate(-4 22 21)"
       />
       {!faint && (
-        <ellipse
-          cx="21.3" cy="22.4" rx="16.8" ry="17.6"
-          fill="none" stroke={color} strokeWidth={1.4} opacity={0.5}
-          transform="rotate(6 21.3 22.4)"
-        />
+        <>
+          <ellipse
+            cx="21.3" cy="22.4" rx="16.8" ry="17.6"
+            fill="none" stroke={color} strokeWidth={1.4} opacity={0.6}
+            transform="rotate(6 21.3 22.4)"
+          />
+          <ellipse
+            cx="22.6" cy="20.2" rx="17.2" ry="16.5"
+            fill="none" stroke={color} strokeWidth={1.1} opacity={0.4}
+            transform="rotate(-9 22.6 20.2)"
+          />
+        </>
       )}
     </svg>
   );
@@ -92,38 +100,47 @@ export function CalendarGrid({
           const isToday = isSameDay(day, today);
           const isSelected = isSameDay(day, selected);
           const kinds = Array.from(new Set(occ.map((o) => o.item.kind)));
-          const hasUrgentPayment = occ.some(
+          const urgentOccs = occ.filter(
             (o) =>
               (o.item.kind === "bill" || o.item.kind === "installment") &&
               o.item.importance === "yuksek"
           );
+          const hasUrgentPayment = urgentOccs.length > 0;
+          // Lit while any urgent payment that day is still unpaid; once they're
+          // all settled the flame goes out instead of disappearing outright.
+          const urgentPending = urgentOccs.some((o) => !o.done);
 
           return (
             <button
               key={key}
               type="button"
               onClick={() => onSelect(day)}
-              className="flex flex-col items-center justify-start gap-0.5 pb-1"
+              className="flex flex-col items-center justify-start gap-1 py-1"
             >
-              <span className="flex h-4 items-center justify-center">
-                {hasUrgentPayment && <FlameIcon className="h-3.5 w-3.5 text-red-pen" />}
-              </span>
               <span
                 className={[
                   "relative flex h-11 w-11 items-center justify-center text-sm",
-                  hasUrgentPayment
-                    ? "rounded-full bg-red-pen text-ink-invert"
+                  urgentPending
+                    ? "text-ink-invert"
                     : !inMonth
                       ? "text-ink-faint/50"
                       : "text-ink",
                   isSelected ? "font-semibold" : "",
                 ].join(" ")}
               >
+                {hasUrgentPayment && (
+                  <FlameIcon
+                    className={[
+                      "pointer-events-none absolute inset-0 h-full w-full scale-125",
+                      urgentPending ? "text-red-pen" : "text-ink-faint/60",
+                    ].join(" ")}
+                  />
+                )}
                 {isSelected && (
-                  <SketchRing color={hasUrgentPayment ? "var(--ink-invert)" : "var(--ink)"} />
+                  <SketchRing color={urgentPending ? "var(--ink-invert)" : "var(--ink)"} />
                 )}
                 {!isSelected && isToday && (
-                  <SketchRing color={hasUrgentPayment ? "var(--ink-invert)" : "var(--pencil)"} faint />
+                  <SketchRing color={urgentPending ? "var(--ink-invert)" : "var(--pencil)"} faint />
                 )}
                 <span className="relative">{day.getDate()}</span>
               </span>

@@ -54,10 +54,10 @@ body {
 }
 
 /* Hand-drawn box: irregular corner radii + a slight rotation so straight CSS
-   borders read as pencil-drawn rather than machine-perfect. A second, fainter
-   edge (::after) retraces the outline slightly off true, like a pencil line
-   that got gone over a second time — the same trick FlameIcon/SketchRing use,
-   applied here so plain rectangular boxes get it too. */
+   borders read as pencil-drawn rather than machine-perfect. Two more, fainter
+   edges (::before, ::after) retrace the outline off true by different amounts
+   — like a pencil line gone over unevenly, so some stretches line up close to
+   the original stroke and others visibly diverge into a second/third pass. */
 .sketch-box,
 .sketch-box-alt {
   position: relative;
@@ -72,24 +72,42 @@ body {
   border-radius: 12px 225px 12px 255px / 225px 12px 255px 12px;
 }
 
+.sketch-box::before,
 .sketch-box::after,
+.sketch-box-alt::before,
 .sketch-box-alt::after {
   content: "";
   position: absolute;
-  inset: -2px 1px 1px -2px;
   border: 1px solid var(--ink);
-  opacity: 0.3;
   pointer-events: none;
 }
 
+.sketch-box::before {
+  inset: 1.5px -3px -3px 1.5px;
+  border-radius: 245px 10px 235px 14px / 10px 235px 14px 245px;
+  opacity: 0.25;
+  transform: rotate(0.9deg);
+}
+
 .sketch-box::after {
-  border-radius: 12px 230px 15px 250px / 230px 15px 250px 12px;
-  transform: rotate(-0.7deg);
+  inset: -3.5px 2px 2px -3.5px;
+  border-radius: 12px 235px 16px 260px / 235px 16px 260px 12px;
+  opacity: 0.45;
+  transform: rotate(-1.3deg);
+}
+
+.sketch-box-alt::before {
+  inset: 1.5px 1.5px -3px -3px;
+  border-radius: 10px 245px 14px 235px / 245px 14px 235px 10px;
+  opacity: 0.25;
+  transform: rotate(-0.9deg);
 }
 
 .sketch-box-alt::after {
-  border-radius: 250px 15px 230px 12px / 15px 250px 12px 230px;
-  transform: rotate(0.7deg);
+  inset: -3.5px -3.5px 2px 2px;
+  border-radius: 235px 16px 260px 12px / 16px 260px 12px 235px;
+  opacity: 0.45;
+  transform: rotate(1.3deg);
 }
 
 .sketch-rotate {
