@@ -100,33 +100,34 @@ export function RepeatIcon({ className }: IconProps) {
   );
 }
 
-/** Hand-sketched flame: a filled silhouette plus a second faint offset
- * stroke, the same "drawn twice" trick used for the app icon and the
- * selected-day ring, so it reads as pencil rather than a clean vector icon. */
-export function FlameIcon({ className }: IconProps) {
+/** Hand-sketched eye/lens: a filled almond silhouette plus a second faint
+ * offset stroke, the same "drawn twice" trick used for the app icon and the
+ * selected-day ring, so it reads as pencil rather than a clean vector icon.
+ * No pupil dot — the day number sits where the pupil would be. */
+export function EyeIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" className={className}>
       <path
-        d="M12 2c-1.8 3.2-4.7 5.7-4.7 9.5a4.7 4.7 0 0 0 9.4 0c0-1.8-.7-3.2-1.6-4.4.1 1.8-1 3-2.1 3-1.1 0-1.9-1-1.9-2.3 0-1.9 1.4-3 .9-5.8Z"
+        d="M2 12S6 5 12 5s10 7 10 7-4 7-10 7-10-7-10-7Z"
         fill="currentColor"
       />
       <path
-        d="M11.6 2.8c-1.6 3-4 5.4-4.2 8.6"
+        d="M2.6 11.6C3.4 9.9 6.9 5.6 12 5.5"
         fill="none"
         stroke="currentColor"
         strokeWidth="1"
         strokeLinecap="round"
-        opacity="0.55"
-        transform="rotate(3 11 8)"
+        opacity="0.5"
+        transform="rotate(2 12 11)"
       />
       <path
-        d="M12.6 3.4c1.1 2.6 2.6 4.6 2.7 7.6"
+        d="M12 18.5c4.7-.1 8-4.9 9-6.9"
         fill="none"
         stroke="currentColor"
         strokeWidth="0.8"
         strokeLinecap="round"
         opacity="0.4"
-        transform="rotate(-4 13 8)"
+        transform="rotate(-2 12 12)"
       />
     </svg>
   );

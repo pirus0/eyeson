@@ -2,9 +2,8 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addMonths, isSameDay, monthGrid, formatMonthTitle, toKey } from "@/lib/date";
-import { ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, FlameIcon } from "./Icons";
+import { ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, EyeIcon } from "./Icons";
 import type { Occurrence } from "@/lib/occurrences";
-import { KIND_DOT_CLASS } from "@/lib/itemMeta";
 
 const WEEKDAYS = ["Pt", "Sa", "Ça", "Pe", "Cu", "Ct", "Pz"];
 
@@ -68,7 +67,6 @@ type DayCellProps = {
  * these props do, so this should skip re-rendering entirely on every
  * pointermove instead of re-computing all ~80 cells per frame. */
 const DayCell = memo(function DayCell({ day, occ, inMonth, isToday, isSelected, onSelect }: DayCellProps) {
-  const kinds = Array.from(new Set(occ.map((o) => o.item.kind)));
   const urgentOccs = occ.filter((o) => {
     if (o.item.kind === "bill" || o.item.kind === "installment") {
       return o.item.importance === "yuksek";
@@ -81,8 +79,8 @@ const DayCell = memo(function DayCell({ day, occ, inMonth, isToday, isSelected, 
     return false;
   });
   const hasUrgentPayment = urgentOccs.length > 0;
-  // Lit while any urgent payment that day is still unpaid; once they're all
-  // settled the flame goes out instead of disappearing outright.
+  // Lit (solid black) while any urgent payment that day is still unpaid;
+  // once they're all settled the eye fades instead of disappearing outright.
   const urgentPending = urgentOccs.some((o) => !o.done);
 
   return (
@@ -95,7 +93,7 @@ const DayCell = memo(function DayCell({ day, occ, inMonth, isToday, isSelected, 
         className={[
           "relative flex h-11 w-11 items-center justify-center text-sm",
           urgentPending
-            ? "text-ink-invert"
+            ? "text-red-pen"
             : !inMonth
               ? "text-ink-faint/50"
               : "text-ink",
@@ -103,25 +101,20 @@ const DayCell = memo(function DayCell({ day, occ, inMonth, isToday, isSelected, 
         ].join(" ")}
       >
         {hasUrgentPayment && (
-          <FlameIcon
+          <EyeIcon
             className={[
               "pointer-events-none absolute inset-0 h-full w-full scale-125",
-              urgentPending ? "text-red-pen" : "text-ink-faint/60",
+              urgentPending ? "text-ink" : "text-ink-faint/40",
             ].join(" ")}
           />
         )}
         {isSelected && (
-          <SketchRing color={urgentPending ? "var(--ink-invert)" : "var(--ink)"} />
+          <SketchRing color={urgentPending ? "var(--red-pen)" : "var(--ink)"} />
         )}
         {!isSelected && isToday && (
-          <SketchRing color={urgentPending ? "var(--ink-invert)" : "var(--pencil)"} faint />
+          <SketchRing color={urgentPending ? "var(--red-pen)" : "var(--pencil)"} faint />
         )}
         <span className="relative">{day.getDate()}</span>
-      </span>
-      <span className="flex h-1.5 gap-0.5">
-        {kinds.slice(0, 4).map((k) => (
-          <span key={k} className={`h-1.5 w-1.5 rounded-full ${KIND_DOT_CLASS[k]}`} />
-        ))}
       </span>
     </button>
   );
