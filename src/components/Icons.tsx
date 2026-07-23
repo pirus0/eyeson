@@ -115,6 +115,37 @@ export function FlameIcon({ className }: IconProps) {
   );
 }
 
+export function SunIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <circle cx="12" cy="12" r="4.2" />
+      <path d="M12 2.5v2.6M12 18.9v2.6M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12h2.6M18.9 12h2.6M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" />
+    </svg>
+  );
+}
+
+/** Hand-sketched crescent: a filled shape plus a faint offset outline,
+ * matching the FlameIcon "drawn twice" treatment. */
+export function MoonIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className}>
+      <path
+        d="M20.2 14.8A8.6 8.6 0 1 1 9.3 3.9a7 7 0 0 0 10.9 10.9Z"
+        fill="currentColor"
+      />
+      <path
+        d="M19.5 15.4A8 8 0 0 1 9.8 4.6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="0.9"
+        strokeLinecap="round"
+        opacity="0.4"
+        transform="rotate(-2 14 10)"
+      />
+    </svg>
+  );
+}
+
 export function DotIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" className={className} {...base}>

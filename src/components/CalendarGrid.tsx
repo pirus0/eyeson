@@ -103,21 +103,29 @@ export function CalendarGrid({
               key={key}
               type="button"
               onClick={() => onSelect(day)}
-              className="flex flex-col items-center justify-start gap-1 py-1"
+              className="flex flex-col items-center justify-start gap-0.5 pb-1"
             >
+              <span className="flex h-4 items-center justify-center">
+                {hasUrgentPayment && <FlameIcon className="h-3.5 w-3.5 text-red-pen" />}
+              </span>
               <span
                 className={[
                   "relative flex h-11 w-11 items-center justify-center text-sm",
-                  !inMonth ? "text-ink-faint/50" : "text-ink",
+                  hasUrgentPayment
+                    ? "rounded-full bg-red-pen text-ink-invert"
+                    : !inMonth
+                      ? "text-ink-faint/50"
+                      : "text-ink",
                   isSelected ? "font-semibold" : "",
                 ].join(" ")}
               >
-                {isSelected && <SketchRing color="var(--ink)" />}
-                {!isSelected && isToday && <SketchRing color="var(--pencil)" faint />}
-                <span className="relative">{day.getDate()}</span>
-                {hasUrgentPayment && (
-                  <FlameIcon className="pointer-events-none absolute -top-1 right-0.5 h-3.5 w-3.5 text-red-pen" />
+                {isSelected && (
+                  <SketchRing color={hasUrgentPayment ? "var(--ink-invert)" : "var(--ink)"} />
                 )}
+                {!isSelected && isToday && (
+                  <SketchRing color={hasUrgentPayment ? "var(--ink-invert)" : "var(--pencil)"} faint />
+                )}
+                <span className="relative">{day.getDate()}</span>
               </span>
               <span className="flex h-1.5 gap-0.5">
                 {kinds.slice(0, 4).map((k) => (

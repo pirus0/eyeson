@@ -8,6 +8,7 @@ import { CalendarGrid } from "./CalendarGrid";
 import { DayPanel } from "./DayPanel";
 import { AddItemSheet } from "./AddItemSheet";
 import { BellMenu } from "./BellMenu";
+import { ThemeToggle } from "./ThemeToggle";
 
 function startOfToday(): Date {
   const now = new Date();
@@ -47,13 +48,16 @@ export function CalendarApp() {
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[env(safe-area-inset-bottom)]">
       <header className="flex items-center justify-between pb-2">
         <h1 className="font-hand text-4xl text-ink">Eyes On</h1>
-        <BellMenu
-          today={today}
-          onSelectDate={(date) => {
-            setSelected(date);
-            setMonthAnchor(date);
-          }}
-        />
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <BellMenu
+            today={today}
+            onSelectDate={(date) => {
+              setSelected(date);
+              setMonthAnchor(date);
+            }}
+          />
+        </div>
       </header>
 
       <CalendarGrid

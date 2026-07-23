@@ -34,7 +34,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#f4f0e4",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f4f0e4" },
+    { media: "(prefers-color-scheme: dark)", color: "#16140f" },
+  ],
 };
 
 export default function RootLayout({
@@ -46,8 +49,22 @@ export default function RootLayout({
     <html
       lang="tr"
       className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`
+            (function () {
+              try {
+                var stored = localStorage.getItem('eyeson-theme');
+                var theme = stored === 'light' || stored === 'dark'
+                  ? stored
+                  : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.dataset.theme = theme;
+              } catch (e) {}
+            })();
+          `}
+        </Script>
         <Providers>{children}</Providers>
         <Script id="sw-register" strategy="afterInteractive">
           {`
