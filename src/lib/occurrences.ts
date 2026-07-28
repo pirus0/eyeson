@@ -20,6 +20,9 @@ export type Occurrence = {
   installmentProgress?: { index: number; total: number };
   /** Only set for credit card occurrences: which half of the cycle this is. */
   role?: "statement" | "due";
+  /** Set when this occurrence is being surfaced on a later day than its own
+   * date because it was never marked done — see computeOverdue. */
+  carriedOverdue?: boolean;
 };
 
 function isPaymentDay(item: AnyItem, date: Date): boolean {
@@ -221,4 +224,42 @@ export function computeReminders(
   });
 
   return reminders;
+}
+
+/** Every kind except the daily recurring todo (which reappears fresh each day
+ * on its own) can be left undone and silently slide off the calendar once
+ * its day passes. This surfaces anything still unfinished — one-off tasks,
+ * whole unfinished weeks, unpaid bills/installments/card due-dates — so it
+ * follows the user into "today" instead of disappearing. Marking one done
+ * uses its original occurrence key, so it settles on the day it was actually
+ * due rather than spawning a new completion on today's date. */
+export function computeOverdue(
+  data: StoreData,
+  completions: CompletionMap,
+  today: Date
+): Occurrence[] {
+  const todayStart = startOfDay(today);
+  const rangeStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), todayStart.getDate() - 400);
+  const rangeEnd = new Date(todayStart.getFullYear(), todayStart.getMonth(), todayStart.getDate() - 1);
+  const occurrences = occurrencesForRange(data, completions, rangeStart, rangeEnd);
+  const currentWeekStart = weekStart(todayStart);
+
+  const seen = new Set<string>();
+  const result: Occurrence[] = [];
+  for (const occ of occurrences) {
+    if (occ.done) continue;
+    if (occ.item.kind === "recurringTodo") continue;
+    // The statement date is informational only, never overdue.
+    if (occ.item.kind === "creditCard" && occ.role !== "due") continue;
+    // A weekly todo is only overdue once its whole week (Mon-Sun) has
+    // passed — days already gone by within the current week don't count.
+    if (occ.item.kind === "weeklyTodo" && weekStart(occ.date) >= currentWeekStart) continue;
+    // Weekly todos share one key across the whole week (several days in the
+    // range map to the same key) — keep only the first (earliest) hit.
+    if (seen.has(occ.key)) continue;
+    seen.add(occ.key);
+    result.push({ ...occ, carriedOverdue: true });
+  }
+
+  return result;
 }

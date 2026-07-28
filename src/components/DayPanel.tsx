@@ -36,10 +36,94 @@ function isSettledUrgent(occ: Occurrence): boolean {
   );
 }
 
+type RowProps = {
+  occ: Occurrence;
+  overdue?: boolean;
+  onToggleDone: (key: string, done: boolean) => void;
+  onRemove: (kind: Occurrence["item"]["kind"], id: string) => void;
+};
+
+function OccurrenceRow({ occ, overdue = false, onToggleDone, onRemove }: RowProps) {
+  const { item } = occ;
+  const isCreditCard = item.kind === "creditCard";
+  const isStatementRow = isCreditCard && occ.role === "statement";
+  const amount =
+    item.kind === "bill" || item.kind === "installment" || isCreditCard ? item.amount : undefined;
+  const importance =
+    item.kind === "bill" || item.kind === "installment" || (isCreditCard && occ.role === "due")
+      ? item.importance
+      : undefined;
+  const companionLabel = isCreditCard
+    ? `${occ.role === "due" ? "Kesim" : "Son ödeme"}: ${formatShort(
+        creditCardCompanionDate(item, occ.date, occ.role!)
+      )}`
+    : null;
+
+  return (
+    <li className="flex items-center gap-3 border-b border-dashed border-ink-faint/40 py-3 px-1 last:border-b-0">
+      {isStatementRow ? (
+        <span className="h-11 w-11 shrink-0" aria-hidden />
+      ) : (
+        <button
+          type="button"
+          onClick={() => onToggleDone(occ.key, !occ.done)}
+          aria-label={occ.done ? "Tamamlanmadı olarak işaretle" : "Tamamlandı olarak işaretle"}
+          className={[
+            "sketch-box flex h-11 w-11 shrink-0 items-center justify-center",
+            occ.done ? "bg-ink/90 text-paper" : "text-transparent",
+          ].join(" ")}
+        >
+          <CheckIcon className="h-4 w-4" />
+        </button>
+      )}
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          {importance && (
+            <span
+              className={`h-2 w-2 shrink-0 rounded-full ${IMPORTANCE_DOT_CLASS[importance]}`}
+              title="Önem"
+            />
+          )}
+          <p
+            className={[
+              "truncate text-[15px] font-medium",
+              occ.done ? "text-ink-faint line-through" : overdue ? "text-red-pen" : "text-ink",
+            ].join(" ")}
+          >
+            {itemTitle(item)}
+            {isStatementRow && " · kesim"}
+          </p>
+        </div>
+        <p className={["text-xs", overdue ? "text-red-pen/80" : "text-ink-faint"].join(" ")}>
+          {overdue ? formatShort(occ.date) : null}
+          {amount !== undefined ? `${overdue ? " · " : ""}${formatAmount(amount)}` : null}
+          {occ.installmentProgress
+            ? `${amount !== undefined || overdue ? " · " : ""}${occ.installmentProgress.index}/${occ.installmentProgress.total}. taksit`
+            : null}
+          {companionLabel ? `${amount !== undefined ? " · " : ""}${companionLabel}` : null}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onRemove(item.kind, item.id)}
+        aria-label="Sil"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-faint active:bg-graphite-wash active:text-ink-soft"
+      >
+        <TrashIcon className="h-4 w-4" />
+      </button>
+    </li>
+  );
+}
+
 export function DayPanel({ day, occurrences, onAdd }: Props) {
   const { setDone, removeItem } = useStore();
 
-  const sorted = [...occurrences].sort((a, b) => {
+  const overdue = occurrences.filter((occ) => occ.carriedOverdue);
+  const own = occurrences.filter((occ) => !occ.carriedOverdue);
+
+  const sorted = [...own].sort((a, b) => {
     const aSettled = isSettledUrgent(a);
     const bSettled = isSettledUrgent(b);
     if (aSettled !== bSettled) return aSettled ? 1 : -1;
@@ -60,89 +144,34 @@ export function DayPanel({ day, occurrences, onAdd }: Props) {
         </button>
       </div>
 
+      {overdue.length > 0 && (
+        <div className="mb-3">
+          <p className="px-1 pb-1 font-hand text-lg text-red-pen">Gecikmiş</p>
+          <ul className="flex flex-col rounded-md border border-dashed border-red-pen/40">
+            {overdue.map((occ) => (
+              <OccurrenceRow
+                key={occ.key}
+                occ={occ}
+                overdue
+                onToggleDone={setDone}
+                onRemove={removeItem}
+              />
+            ))}
+          </ul>
+        </div>
+      )}
+
       {sorted.length === 0 ? (
-        <p className="px-1 py-6 text-center font-hand text-xl text-ink-faint">
-          Bu günde bir şey yok.
-        </p>
+        overdue.length === 0 && (
+          <p className="px-1 py-6 text-center font-hand text-xl text-ink-faint">
+            Bu günde bir şey yok.
+          </p>
+        )
       ) : (
         <ul className="flex flex-col">
-          {sorted.map((occ) => {
-            const { item } = occ;
-            const isCreditCard = item.kind === "creditCard";
-            const isStatementRow = isCreditCard && occ.role === "statement";
-            const amount =
-              item.kind === "bill" || item.kind === "installment" || isCreditCard
-                ? item.amount
-                : undefined;
-            const importance =
-              item.kind === "bill" || item.kind === "installment" || (isCreditCard && occ.role === "due")
-                ? item.importance
-                : undefined;
-            const companionLabel = isCreditCard
-              ? `${occ.role === "due" ? "Kesim" : "Son ödeme"}: ${formatShort(
-                  creditCardCompanionDate(item, occ.date, occ.role!)
-                )}`
-              : null;
-
-            return (
-              <li
-                key={occ.key}
-                className="flex items-center gap-3 border-b border-dashed border-ink-faint/40 py-3 px-1 last:border-b-0"
-              >
-                {isStatementRow ? (
-                  <span className="h-11 w-11 shrink-0" aria-hidden />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setDone(occ.key, !occ.done)}
-                    aria-label={occ.done ? "Tamamlanmadı olarak işaretle" : "Tamamlandı olarak işaretle"}
-                    className={[
-                      "sketch-box flex h-11 w-11 shrink-0 items-center justify-center",
-                      occ.done ? "bg-ink/90 text-paper" : "text-transparent",
-                    ].join(" ")}
-                  >
-                    <CheckIcon className="h-4 w-4" />
-                  </button>
-                )}
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    {importance && (
-                      <span
-                        className={`h-2 w-2 shrink-0 rounded-full ${IMPORTANCE_DOT_CLASS[importance]}`}
-                        title="Önem"
-                      />
-                    )}
-                    <p
-                      className={[
-                        "truncate text-[15px] font-medium",
-                        occ.done ? "text-ink-faint line-through" : "text-ink",
-                      ].join(" ")}
-                    >
-                      {itemTitle(item)}
-                      {isStatementRow && " · kesim"}
-                    </p>
-                  </div>
-                  <p className="text-xs text-ink-faint">
-                    {amount !== undefined ? formatAmount(amount) : null}
-                    {occ.installmentProgress
-                      ? `${amount !== undefined ? " · " : ""}${occ.installmentProgress.index}/${occ.installmentProgress.total}. taksit`
-                      : null}
-                    {companionLabel ? `${amount !== undefined ? " · " : ""}${companionLabel}` : null}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => removeItem(item.kind, item.id)}
-                  aria-label="Sil"
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-faint active:bg-graphite-wash active:text-ink-soft"
-                >
-                  <TrashIcon className="h-4 w-4" />
-                </button>
-              </li>
-            );
-          })}
+          {sorted.map((occ) => (
+            <OccurrenceRow key={occ.key} occ={occ} onToggleDone={setDone} onRemove={removeItem} />
+          ))}
         </ul>
       )}
     </div>

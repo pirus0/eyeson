@@ -82,6 +82,10 @@ const DayCell = memo(function DayCell({ day, occ, inMonth, isToday, isSelected, 
   // Lit (solid black) while any urgent payment that day is still unpaid;
   // once they're all settled the eye fades instead of disappearing outright.
   const urgentPending = urgentOccs.some((o) => !o.done);
+  // Carried-over overdue items only ever land on today's cell (see
+  // computeOverdue) — this just needs to turn that day's number red too.
+  const hasOverdueCarry = occ.some((o) => o.carriedOverdue);
+  const isRed = urgentPending || hasOverdueCarry;
 
   return (
     <button
@@ -92,7 +96,7 @@ const DayCell = memo(function DayCell({ day, occ, inMonth, isToday, isSelected, 
       <span
         className={[
           "relative flex h-11 w-11 items-center justify-center text-sm",
-          urgentPending
+          isRed
             ? "text-red-pen"
             : !inMonth
               ? "text-ink-faint/50"
@@ -109,10 +113,10 @@ const DayCell = memo(function DayCell({ day, occ, inMonth, isToday, isSelected, 
           />
         )}
         {isSelected && (
-          <SketchRing color={urgentPending ? "var(--red-pen)" : "var(--ink)"} />
+          <SketchRing color={isRed ? "var(--red-pen)" : "var(--ink)"} />
         )}
         {!isSelected && isToday && (
-          <SketchRing color={urgentPending ? "var(--red-pen)" : "var(--pencil)"} faint />
+          <SketchRing color={isRed ? "var(--red-pen)" : "var(--pencil)"} faint />
         )}
         <span className="relative">{day.getDate()}</span>
       </span>

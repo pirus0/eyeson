@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addMonths, isSameDay, monthGrid } from "@/lib/date";
-import { occurrencesForRange, occurrencesForDay } from "@/lib/occurrences";
+import { addMonths, isSameDay, monthGrid, toKey } from "@/lib/date";
+import { occurrencesForRange, occurrencesForDay, computeOverdue } from "@/lib/occurrences";
 import { useStore } from "@/lib/store";
 import { useToday } from "@/lib/useToday";
 import { CalendarGrid } from "./CalendarGrid";
@@ -42,6 +42,11 @@ export function CalendarApp() {
     return nextMonthDays[nextMonthDays.length - 1];
   }, [monthAnchor]);
 
+  const overdue = useMemo(
+    () => computeOverdue(data, data.completions, today),
+    [data, today]
+  );
+
   const occurrencesByDay = useMemo(() => {
     const occs = occurrencesForRange(data, data.completions, rangeStart, rangeEnd);
     const map = new Map<string, ReturnType<typeof occurrencesForRange>>();
@@ -50,13 +55,21 @@ export function CalendarApp() {
       if (list) list.push(occ);
       else map.set(occ.dateKey, [occ]);
     }
+    // Carried-over overdue items always land on today's cell, regardless of
+    // which day they were originally due on.
+    if (overdue.length > 0) {
+      const todayKey = toKey(today);
+      const list = map.get(todayKey);
+      if (list) list.push(...overdue);
+      else map.set(todayKey, [...overdue]);
+    }
     return map;
-  }, [data, rangeStart, rangeEnd]);
+  }, [data, rangeStart, rangeEnd, overdue, today]);
 
-  const selectedOccurrences = useMemo(
-    () => occurrencesForDay(data, data.completions, selected),
-    [data, selected]
-  );
+  const selectedOccurrences = useMemo(() => {
+    const own = occurrencesForDay(data, data.completions, selected);
+    return isSameDay(selected, today) ? [...overdue, ...own] : own;
+  }, [data, selected, today, overdue]);
 
   if (!ready) return null;
 
