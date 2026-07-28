@@ -106,6 +106,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // edits do; this skips the one push that would otherwise immediately echo
   // back what was just downloaded.
   const skipNextPushRef = useRef(false);
+  // The hydration effect below also triggers the data-change effect (data
+  // goes from the initial emptyData() to whatever loadData() returned). That
+  // transition isn't an edit — it must not bump eyeson-data-updated-at,
+  // otherwise a device with no local data looks "just updated" and always
+  // outranks a genuinely newer pulled backup, so the backup never applies.
+  const isHydratingRef = useRef(true);
 
   useEffect(() => {
     latestDataRef.current = data;
@@ -190,6 +196,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!ready) return;
+    if (isHydratingRef.current) {
+      isHydratingRef.current = false;
+      return;
+    }
     saveData(data);
     if (skipNextPushRef.current) {
       skipNextPushRef.current = false;
