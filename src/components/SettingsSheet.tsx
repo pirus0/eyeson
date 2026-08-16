@@ -5,10 +5,14 @@ import { useStore } from "@/lib/store";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { CloseIcon, CloudSyncIcon } from "./Icons";
 
-export function SettingsSheet() {
+type Props = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
+
+export function SettingsSheet({ open, onOpenChange }: Props) {
   const { syncEnabled, syncState, syncError, lastSyncedAt, configureSync, disableSync } =
     useStore();
-  const [open, setOpen] = useState(false);
   const [tokenInput, setTokenInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -33,7 +37,7 @@ export function SettingsSheet() {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => onOpenChange(true)}
         aria-label="Yedekleme ayarları"
         className="relative flex h-11 w-11 items-center justify-center rounded-full text-ink active:bg-graphite-wash"
       >
@@ -50,7 +54,7 @@ export function SettingsSheet() {
               <h2 className="font-hand text-2xl text-ink">Yedekleme</h2>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={() => onOpenChange(false)}
                 aria-label="Kapat"
                 className="flex h-11 w-11 items-center justify-center rounded-full text-ink-soft active:bg-graphite-wash"
               >

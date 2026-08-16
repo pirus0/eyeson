@@ -17,7 +17,10 @@ export function CalendarApp() {
   const today = useToday();
   const [monthAnchor, setMonthAnchor] = useState(today);
   const [selected, setSelected] = useState(today);
-  const [addOpen, setAddOpen] = useState(false);
+  // The three overlay panels (settings, reminders, add-item) share one slot
+  // so opening one always closes whichever other was already open, instead
+  // of each tracking its own boolean and letting two stack at once.
+  const [activeSheet, setActiveSheet] = useState<"settings" | "bell" | "add" | null>(null);
 
   // If the day rolls over while the app is open, follow along — but only
   // for whichever of these was still parked on the old "today"; a month or
@@ -79,13 +82,18 @@ export function CalendarApp() {
         <h1 className="font-hand text-4xl text-ink">Eyes On</h1>
         <div className="flex items-center gap-1">
           <ThemeToggle />
-          <SettingsSheet />
+          <SettingsSheet
+            open={activeSheet === "settings"}
+            onOpenChange={(v) => setActiveSheet(v ? "settings" : null)}
+          />
           <BellMenu
             today={today}
             onSelectDate={(date) => {
               setSelected(date);
               setMonthAnchor(date);
             }}
+            open={activeSheet === "bell"}
+            onOpenChange={(v) => setActiveSheet(v ? "bell" : null)}
           />
         </div>
       </header>
@@ -100,9 +108,15 @@ export function CalendarApp() {
         onNextMonth={() => setMonthAnchor((m) => addMonths(m, 1))}
       />
 
-      <DayPanel day={selected} occurrences={selectedOccurrences} onAdd={() => setAddOpen(true)} />
+      <DayPanel
+        day={selected}
+        occurrences={selectedOccurrences}
+        onAdd={() => setActiveSheet("add")}
+      />
 
-      {addOpen && <AddItemSheet defaultDate={selected} onClose={() => setAddOpen(false)} />}
+      {activeSheet === "add" && (
+        <AddItemSheet defaultDate={selected} onClose={() => setActiveSheet(null)} />
+      )}
     </div>
   );
 }

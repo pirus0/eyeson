@@ -11,6 +11,8 @@ import { BellIcon, CheckIcon, CloseIcon } from "./Icons";
 type Props = {
   today: Date;
   onSelectDate: (date: Date) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 };
 
 const SWIPE_DISMISS_MIN = 88;
@@ -129,9 +131,8 @@ function ReminderRow({
   );
 }
 
-export function BellMenu({ today, onSelectDate }: Props) {
+export function BellMenu({ today, onSelectDate, open, onOpenChange }: Props) {
   const { data, setDone } = useStore();
-  const [open, setOpen] = useState(false);
   useBodyScrollLock(open);
 
   const reminders = useMemo(
@@ -143,7 +144,7 @@ export function BellMenu({ today, onSelectDate }: Props) {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => onOpenChange(true)}
         aria-label="Hatırlatıcılar"
         className="relative flex h-11 w-11 items-center justify-center rounded-full text-ink active:bg-graphite-wash"
       >
@@ -162,7 +163,7 @@ export function BellMenu({ today, onSelectDate }: Props) {
               <h2 className="font-hand text-2xl text-ink">Yaklaşan ödemeler</h2>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={() => onOpenChange(false)}
                 aria-label="Kapat"
                 className="flex h-11 w-11 items-center justify-center rounded-full text-ink-soft active:bg-graphite-wash"
               >
@@ -184,7 +185,7 @@ export function BellMenu({ today, onSelectDate }: Props) {
                       reminder={r}
                       onOpen={() => {
                         onSelectDate(r.date);
-                        setOpen(false);
+                        onOpenChange(false);
                       }}
                       onDismiss={() => setDone(r.key, true)}
                     />
