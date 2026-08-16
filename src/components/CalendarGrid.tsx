@@ -90,6 +90,7 @@ const DayCell = memo(function DayCell({ day, occ, inMonth, isToday, isSelected, 
   return (
     <button
       type="button"
+      data-day-key={toKey(day)}
       onClick={() => onSelect(day)}
       className="flex flex-col items-center justify-start gap-1 py-1"
     >
@@ -135,6 +136,11 @@ export function CalendarGrid({
 }: Props) {
   const days = useMemo(() => monthGrid(monthAnchor), [monthAnchor]);
   const currentMonth = monthAnchor.getMonth();
+  const dayByKey = useMemo(() => {
+    const m = new Map<string, Date>();
+    for (const d of days) m.set(toKey(d), d);
+    return m;
+  }, [days]);
 
   const nextMonthAnchor = useMemo(() => addMonths(monthAnchor, 1), [monthAnchor]);
   const nextMonth = nextMonthAnchor.getMonth();
@@ -202,7 +208,7 @@ export function CalendarGrid({
     }
   }
 
-  function endPeek() {
+  function endPeek(e: React.PointerEvent<HTMLDivElement>) {
     setPeeking(false);
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
@@ -215,6 +221,23 @@ export function CalendarGrid({
     const finalPeek = pendingPeekRef.current ?? peek;
     pendingPeekRef.current = null;
     setPeek(finalPeek > peekCommitThreshold ? maxPeek : 0);
+
+    // A press that barely moved is a tap, not a peek drag — mouse pointers
+    // routinely shift a couple of pixels between down and up even on a
+    // deliberate click. Once this element has pointer capture, Chrome and
+    // Firefox retarget the resulting compatibility click event to the
+    // capturing element (this grid) instead of the day button underneath,
+    // so a mouse click here can silently never reach onSelect. Resolve taps
+    // ourselves via hit-testing instead of depending on that native click —
+    // this works the same for mouse and touch.
+    const totalMove = Math.abs(startYRef.current - e.clientY);
+    if (totalMove < 6 && finalPeek <= peekCommitThreshold) {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const key = (el as HTMLElement | null)?.closest<HTMLElement>("[data-day-key]")?.dataset
+        .dayKey;
+      const day = key ? dayByKey.get(key) : undefined;
+      if (day) onSelect(day);
+    }
   }
 
   const handleSelectFromPeek = useCallback(
