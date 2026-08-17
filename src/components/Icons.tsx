@@ -8,10 +8,17 @@ const base = {
   strokeLinejoin: "round" as const,
 };
 
+/** Same "drawn 2-3 times" retrace as EyeIcon/MoonIcon, extended to a
+ * stroke-based icon: the base path repeated at shrinking opacity/width and
+ * a small rotation each pass, so it reads as pencil retrace rather than a
+ * single clean vector stroke. */
 export function BellIcon({ className }: IconProps) {
+  const bell = "M6 9a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6.5H4c.5-1 2-2.5 2-6.5Z";
   return (
     <svg viewBox="0 0 24 24" className={className} {...base}>
-      <path d="M6 9a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6.5H4c.5-1 2-2.5 2-6.5Z" />
+      <path d={bell} transform="rotate(2.4 12 11)" strokeWidth={0.7} opacity={0.3} />
+      <path d={bell} transform="rotate(-1.6 12 11)" strokeWidth={0.9} opacity={0.45} />
+      <path d={bell} />
       <path d="M10 19a2 2 0 0 0 4 0" />
     </svg>
   );
@@ -42,25 +49,34 @@ export function CloseIcon({ className }: IconProps) {
 }
 
 export function ChevronLeftIcon({ className }: IconProps) {
+  const d = "M15 5l-7 7 7 7";
   return (
     <svg viewBox="0 0 24 24" className={className} {...base}>
-      <path d="M15 5l-7 7 7 7" />
+      <path d={d} transform="rotate(3 12 12)" strokeWidth={0.7} opacity={0.3} />
+      <path d={d} transform="rotate(-2 12 12)" strokeWidth={0.9} opacity={0.45} />
+      <path d={d} />
     </svg>
   );
 }
 
 export function ChevronRightIcon({ className }: IconProps) {
+  const d = "M9 5l7 7-7 7";
   return (
     <svg viewBox="0 0 24 24" className={className} {...base}>
-      <path d="M9 5l7 7-7 7" />
+      <path d={d} transform="rotate(-3 12 12)" strokeWidth={0.7} opacity={0.3} />
+      <path d={d} transform="rotate(2 12 12)" strokeWidth={0.9} opacity={0.45} />
+      <path d={d} />
     </svg>
   );
 }
 
 export function ChevronUpIcon({ className }: IconProps) {
+  const d = "M5 15l7-7 7 7";
   return (
     <svg viewBox="0 0 24 24" className={className} {...base}>
-      <path d="M5 15l7-7 7 7" />
+      <path d={d} transform="rotate(3 12 12)" strokeWidth={0.7} opacity={0.3} />
+      <path d={d} transform="rotate(-2 12 12)" strokeWidth={0.9} opacity={0.45} />
+      <path d={d} />
     </svg>
   );
 }
@@ -165,9 +181,12 @@ export function MoonIcon({ className }: IconProps) {
 }
 
 export function CloudSyncIcon({ className }: IconProps) {
+  const cloud = "M7 17a4 4 0 0 1-.4-7.98A5.5 5.5 0 0 1 17.4 8.1 4.2 4.2 0 0 1 17 17H7Z";
   return (
     <svg viewBox="0 0 24 24" className={className} {...base}>
-      <path d="M7 17a4 4 0 0 1-.4-7.98A5.5 5.5 0 0 1 17.4 8.1 4.2 4.2 0 0 1 17 17H7Z" />
+      <path d={cloud} transform="rotate(2.2 12 12)" strokeWidth={0.7} opacity={0.3} />
+      <path d={cloud} transform="rotate(-1.6 12 12)" strokeWidth={0.9} opacity={0.45} />
+      <path d={cloud} />
       <path d="M12 10.5v6M9.3 13.7 12 16.5l2.7-2.8" />
     </svg>
   );

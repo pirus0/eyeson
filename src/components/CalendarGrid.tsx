@@ -37,14 +37,14 @@ function SketchRing({ color, faint = false }: { color: string; faint?: boolean }
       {!faint && (
         <>
           <ellipse
-            cx="21.3" cy="22.4" rx="16.8" ry="17.6"
-            fill="none" stroke={color} strokeWidth={1.4} opacity={0.6}
-            transform="rotate(6 21.3 22.4)"
+            cx="19.5" cy="23.5" rx="16" ry="18.6"
+            fill="none" stroke={color} strokeWidth={1.3} opacity={0.55}
+            transform="rotate(11 19.5 23.5)"
           />
           <ellipse
-            cx="22.6" cy="20.2" rx="17.2" ry="16.5"
-            fill="none" stroke={color} strokeWidth={1.1} opacity={0.4}
-            transform="rotate(-9 22.6 20.2)"
+            cx="24.5" cy="18.5" rx="18.6" ry="15.5"
+            fill="none" stroke={color} strokeWidth={1} opacity={0.35}
+            transform="rotate(-14 24.5 18.5)"
           />
         </>
       )}
