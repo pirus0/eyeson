@@ -15,12 +15,12 @@ type Props = {
 };
 
 const KIND_ORDER: ItemKind[] = [
+  "oneOff",
   "bill",
   "installment",
   "creditCard",
   "recurringTodo",
   "weeklyTodo",
-  "oneOff",
 ];
 const TITLE_ONLY_KINDS: ItemKind[] = ["recurringTodo", "weeklyTodo", "oneOff"];
 
@@ -45,7 +45,7 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
   const { addBill, addInstallment, addCreditCard, addRecurringTodo, addWeeklyTodo, addOneOff } =
     useStore();
   useBodyScrollLock(true);
-  const [kind, setKind] = useState<ItemKind>("bill");
+  const [kind, setKind] = useState<ItemKind>("oneOff");
 
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
@@ -93,7 +93,7 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
     } else if (kind === "weeklyTodo") {
       addWeeklyTodo({ title: name.trim(), startDate });
     } else {
-      addOneOff({ title: name.trim(), date: startDate });
+      addOneOff({ title: name.trim(), date: startDate || undefined });
     }
     onClose();
   }
@@ -251,14 +251,20 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
 
           {(kind === "recurringTodo" || kind === "weeklyTodo" || kind === "oneOff") && (
             <label className="flex flex-col gap-1 text-sm text-ink-soft">
-              {kind === "oneOff" ? "Tarih" : "Başlangıç tarihi"}
+              {kind === "oneOff" ? "Tarih (opsiyonel)" : "Başlangıç tarihi"}
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                required
+                required={kind !== "oneOff"}
                 className={inputClass}
               />
+              {kind === "oneOff" && (
+                <span className="text-xs text-ink-faint">
+                  Boş bırakırsan &quot;zamanı belirsiz&quot; olarak eklenir, soru işaretinden
+                  sonra atarsın.
+                </span>
+              )}
             </label>
           )}
 

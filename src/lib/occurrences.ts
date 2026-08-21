@@ -7,7 +7,15 @@ import {
   toKey,
   weekStart,
 } from "./date";
-import type { AnyItem, CompletionMap, CreditCard, Importance, PaymentItem, StoreData } from "./types";
+import type {
+  AnyItem,
+  CompletionMap,
+  CreditCard,
+  Importance,
+  OneOff,
+  PaymentItem,
+  StoreData,
+} from "./types";
 import { IMPORTANCE_THRESHOLD_DAYS, completionKey } from "./types";
 
 export type Occurrence = {
@@ -53,6 +61,8 @@ function isPaymentDay(item: AnyItem, date: Date): boolean {
   }
 
   if (item.kind === "oneOff") {
+    // Unscheduled — waiting to be assigned a day, never occupies one on its own.
+    if (!item.date) return false;
     return isSameDay(date, fromKey(item.date));
   }
 
@@ -182,14 +192,22 @@ export function occurrencesForDay(
   return occurrencesForRange(data, completions, day, day);
 }
 
+/** One-off tasks with no day yet — created via the question-mark panel (or
+ * left blank in the add sheet) and waiting to be assigned one. */
+export function unscheduledOneOffs(data: StoreData): OneOff[] {
+  return data.oneOffs.filter((o) => !o.date);
+}
+
 export type Reminder = Omit<Occurrence, "item"> & {
-  item: PaymentItem;
+  item: PaymentItem | OneOff;
   daysUntilDue: number;
   overdue: boolean;
 };
 
 /** Payment-type occurrences (bills/installments) that are unpaid and within their
- * importance threshold window, or overdue. Sorted overdue-first, then soonest-first. */
+ * importance threshold window, or overdue — plus assigned one-off tasks that
+ * were given an importance (via "Ata"), which follow the exact same rule.
+ * Sorted overdue-first, then soonest-first. */
 export function computeReminders(
   data: StoreData,
   completions: CompletionMap,
@@ -205,14 +223,16 @@ export function computeReminders(
   const reminders: Reminder[] = [];
   for (const occ of occurrences) {
     const item = occ.item;
-    if (item.kind !== "bill" && item.kind !== "installment" && item.kind !== "creditCard") continue;
+    const isPayment = item.kind === "bill" || item.kind === "installment" || item.kind === "creditCard";
+    const isImportantOneOff = item.kind === "oneOff" && item.importance !== undefined;
+    if (!isPayment && !isImportantOneOff) continue;
     // The statement date is informational (nothing to pay yet) — only the
     // due date carries urgency, so only it becomes a reminder.
     if (item.kind === "creditCard" && occ.role !== "due") continue;
     if (occ.done) continue;
     const daysUntilDue = differenceInCalendarDays(occ.date, todayStart);
     const overdue = daysUntilDue < 0;
-    const importance: Importance = item.importance;
+    const importance = item.importance as Importance;
     const threshold = IMPORTANCE_THRESHOLD_DAYS[importance];
     if (!overdue && daysUntilDue > threshold) continue;
     reminders.push({ ...occ, item, daysUntilDue, overdue });

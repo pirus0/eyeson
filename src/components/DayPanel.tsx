@@ -30,7 +30,7 @@ function isSettledUrgent(occ: Occurrence): boolean {
     return occ.role === "due" && item.importance === "yuksek" && occ.done;
   }
   return (
-    (item.kind === "bill" || item.kind === "installment") &&
+    (item.kind === "bill" || item.kind === "installment" || item.kind === "oneOff") &&
     item.importance === "yuksek" &&
     occ.done
   );
@@ -50,7 +50,10 @@ function OccurrenceRow({ occ, overdue = false, onToggleDone, onRemove }: RowProp
   const amount =
     item.kind === "bill" || item.kind === "installment" || isCreditCard ? item.amount : undefined;
   const importance =
-    item.kind === "bill" || item.kind === "installment" || (isCreditCard && occ.role === "due")
+    item.kind === "bill" ||
+    item.kind === "installment" ||
+    item.kind === "oneOff" ||
+    (isCreditCard && occ.role === "due")
       ? item.importance
       : undefined;
   const companionLabel = isCreditCard

@@ -8,16 +8,20 @@ const base = {
   strokeLinejoin: "round" as const,
 };
 
-/** Same "drawn 2-3 times" retrace as EyeIcon/MoonIcon, extended to a
- * stroke-based icon: the base path repeated at shrinking opacity/width and
- * a small rotation each pass, so it reads as pencil retrace rather than a
- * single clean vector stroke. */
+/** Two retrace passes, each both nudged sideways (translate) and rotated —
+ * translate alone guarantees a visible doubled line all the way around the
+ * shape at icon size (a pure rotation barely moves points near its own
+ * pivot, which is why the first cut at this looked like a single clean
+ * stroke instead of pencil retrace). Shared by the header icons. */
+const RETRACE_1 = { transform: "translate(0.9 -0.6) rotate(2.5 12 12)", strokeWidth: 1.15, opacity: 0.4 };
+const RETRACE_2 = { transform: "translate(-0.8 0.7) rotate(-3 12 12)", strokeWidth: 1.35, opacity: 0.6 };
+
 export function BellIcon({ className }: IconProps) {
   const bell = "M6 9a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6.5H4c.5-1 2-2.5 2-6.5Z";
   return (
     <svg viewBox="0 0 24 24" className={className} {...base}>
-      <path d={bell} transform="rotate(2.4 12 11)" strokeWidth={0.7} opacity={0.3} />
-      <path d={bell} transform="rotate(-1.6 12 11)" strokeWidth={0.9} opacity={0.45} />
+      <path d={bell} {...RETRACE_1} />
+      <path d={bell} {...RETRACE_2} />
       <path d={bell} />
       <path d="M10 19a2 2 0 0 0 4 0" />
     </svg>
@@ -150,10 +154,33 @@ export function EyeIcon({ className }: IconProps) {
 }
 
 export function SunIcon({ className }: IconProps) {
+  const rays =
+    "M12 2.5v2.6M12 18.9v2.6M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12h2.6M18.9 12h2.6M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8";
   return (
     <svg viewBox="0 0 24 24" className={className} {...base}>
+      <g transform={RETRACE_1.transform} strokeWidth={RETRACE_1.strokeWidth} opacity={RETRACE_1.opacity}>
+        <circle cx="12" cy="12" r="4.2" />
+        <path d={rays} />
+      </g>
+      <g transform={RETRACE_2.transform} strokeWidth={RETRACE_2.strokeWidth} opacity={RETRACE_2.opacity}>
+        <circle cx="12" cy="12" r="4.2" />
+        <path d={rays} />
+      </g>
       <circle cx="12" cy="12" r="4.2" />
-      <path d="M12 2.5v2.6M12 18.9v2.6M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12h2.6M18.9 12h2.6M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" />
+      <path d={rays} />
+    </svg>
+  );
+}
+
+/** Same retrace treatment as BellIcon/CloudSyncIcon. */
+export function QuestionIcon({ className }: IconProps) {
+  const mark = "M8.5 9.2a3.6 3.6 0 1 1 5.9 2.8c-1.3.9-2.1 1.7-2.1 3.3";
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <path d={mark} {...RETRACE_1} />
+      <path d={mark} {...RETRACE_2} />
+      <path d={mark} />
+      <circle cx="12" cy="19" r="1.2" fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -184,8 +211,8 @@ export function CloudSyncIcon({ className }: IconProps) {
   const cloud = "M7 17a4 4 0 0 1-.4-7.98A5.5 5.5 0 0 1 17.4 8.1 4.2 4.2 0 0 1 17 17H7Z";
   return (
     <svg viewBox="0 0 24 24" className={className} {...base}>
-      <path d={cloud} transform="rotate(2.2 12 12)" strokeWidth={0.7} opacity={0.3} />
-      <path d={cloud} transform="rotate(-1.6 12 12)" strokeWidth={0.9} opacity={0.45} />
+      <path d={cloud} {...RETRACE_1} />
+      <path d={cloud} {...RETRACE_2} />
       <path d={cloud} />
       <path d="M12 10.5v6M9.3 13.7 12 16.5l2.7-2.8" />
     </svg>

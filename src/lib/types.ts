@@ -44,7 +44,8 @@ export type OneOff = {
   id: string;
   kind: "oneOff";
   title: string;
-  date: string; // YYYY-MM-DD
+  date?: string; // YYYY-MM-DD; undefined = unscheduled, waiting to be assigned a day
+  importance?: Importance; // only set once assigned a day — drives its reminder, like a bill
   createdAt: string;
 };
 

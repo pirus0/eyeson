@@ -6,6 +6,7 @@ import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { computeReminders, type Reminder } from "@/lib/occurrences";
 import { formatShort } from "@/lib/date";
 import { formatAmount, itemTitle, IMPORTANCE_DOT_CLASS } from "@/lib/itemMeta";
+import type { Importance } from "@/lib/types";
 import { BellIcon, CheckIcon, CloseIcon } from "./Icons";
 
 type Props = {
@@ -74,6 +75,8 @@ function ReminderRow({
   }
 
   const revealClass = dragX !== 0 ? "opacity-100" : "opacity-0";
+  const amount = reminder.item.kind === "oneOff" ? undefined : reminder.item.amount;
+  const importance = reminder.item.importance as Importance;
 
   return (
     <li
@@ -104,14 +107,12 @@ function ReminderRow({
         }}
         className="flex w-full items-center gap-3 bg-paper py-3 text-left"
       >
-        <span
-          className={`h-2 w-2 shrink-0 rounded-full ${IMPORTANCE_DOT_CLASS[reminder.item.importance]}`}
-        />
+        <span className={`h-2 w-2 shrink-0 rounded-full ${IMPORTANCE_DOT_CLASS[importance]}`} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-medium text-ink">{itemTitle(reminder.item)}</p>
           <p className="text-xs text-ink-faint">
             {formatShort(reminder.date)}
-            {reminder.item.amount !== undefined ? ` · ${formatAmount(reminder.item.amount)}` : ""}
+            {amount !== undefined ? ` · ${formatAmount(amount)}` : ""}
           </p>
         </div>
         <span

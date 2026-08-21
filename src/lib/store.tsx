@@ -58,7 +58,11 @@ type StoreContextValue = {
   }) => void;
   addRecurringTodo: (input: { title: string; startDate: string }) => void;
   addWeeklyTodo: (input: { title: string; startDate: string }) => void;
-  addOneOff: (input: { title: string; date: string }) => void;
+  addOneOff: (input: { title: string; date?: string; importance?: Importance }) => void;
+  /** Gives an unscheduled one-off (created with no date) a day and, optionally,
+   * an importance — after this it behaves exactly like one created with a date
+   * up front. */
+  assignOneOff: (id: string, input: { date: string; importance?: Importance }) => void;
   addCreditCard: (input: {
     name: string;
     amount?: number;
@@ -291,9 +295,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       kind: "oneOff",
       title: input.title,
       date: input.date,
+      importance: input.importance,
       createdAt: new Date().toISOString(),
     };
     setData((d) => ({ ...d, oneOffs: [...d.oneOffs, oneOff] }));
+  }, []);
+
+  const assignOneOff = useCallback<StoreContextValue["assignOneOff"]>((id, input) => {
+    setData((d) => ({
+      ...d,
+      oneOffs: d.oneOffs.map((o) =>
+        o.id === id ? { ...o, date: input.date, importance: input.importance } : o
+      ),
+    }));
   }, []);
 
   const addCreditCard = useCallback<StoreContextValue["addCreditCard"]>((input) => {
@@ -372,6 +386,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       addRecurringTodo,
       addWeeklyTodo,
       addOneOff,
+      assignOneOff,
       addCreditCard,
       removeItem,
       toggleActive,
@@ -391,6 +406,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       addRecurringTodo,
       addWeeklyTodo,
       addOneOff,
+      assignOneOff,
       addCreditCard,
       removeItem,
       toggleActive,

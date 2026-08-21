@@ -11,6 +11,7 @@ import { AddItemSheet } from "./AddItemSheet";
 import { BellMenu } from "./BellMenu";
 import { SettingsSheet } from "./SettingsSheet";
 import { ThemeToggle } from "./ThemeToggle";
+import { UnscheduledSheet } from "./UnscheduledSheet";
 
 export function CalendarApp() {
   const { data, ready } = useStore();
@@ -20,7 +21,9 @@ export function CalendarApp() {
   // The three overlay panels (settings, reminders, add-item) share one slot
   // so opening one always closes whichever other was already open, instead
   // of each tracking its own boolean and letting two stack at once.
-  const [activeSheet, setActiveSheet] = useState<"settings" | "bell" | "add" | null>(null);
+  const [activeSheet, setActiveSheet] = useState<
+    "settings" | "bell" | "add" | "unscheduled" | null
+  >(null);
 
   // If the day rolls over while the app is open, follow along — but only
   // for whichever of these was still parked on the old "today"; a month or
@@ -81,6 +84,14 @@ export function CalendarApp() {
       <header className="flex items-center justify-between pb-2">
         <h1 className="font-hand text-4xl text-ink">Eyes On</h1>
         <div className="flex items-center gap-1">
+          <UnscheduledSheet
+            onSelectDate={(date) => {
+              setSelected(date);
+              setMonthAnchor(date);
+            }}
+            open={activeSheet === "unscheduled"}
+            onOpenChange={(v) => setActiveSheet(v ? "unscheduled" : null)}
+          />
           <ThemeToggle />
           <SettingsSheet
             open={activeSheet === "settings"}
