@@ -1,21 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { unscheduledOneOffs } from "@/lib/occurrences";
 import { fromKey, todayKey } from "@/lib/date";
-import { IMPORTANCE_LABELS, type Importance } from "@/lib/types";
-import { QuestionIcon, CloseIcon, TrashIcon } from "./Icons";
+import { type Importance } from "@/lib/types";
+import { INPUT_CLASS } from "@/lib/itemMeta";
+import { QuestionIcon, TrashIcon } from "./Icons";
+import { IconButton } from "./IconButton";
+import { ImportanceSelector } from "./ImportanceSelector";
+import { Sheet } from "./Sheet";
 
 type Props = {
   onSelectDate: (date: Date) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
-
-const inputClass =
-  "min-h-11 border-0 border-b-[1.5px] border-ink-faint/70 bg-transparent px-1 text-base text-ink placeholder:text-ink-faint/70 focus:border-ink focus:outline-none";
 
 function AssignRow({
   id,
@@ -71,26 +72,12 @@ function AssignRow({
               value={date}
               onChange={(e) => setDate(e.target.value)}
               required
-              className={inputClass}
+              className={INPUT_CLASS}
             />
           </label>
           <div className="flex flex-col gap-1 text-sm text-ink-soft">
             Önem
-            <div className="grid grid-cols-3 gap-2">
-              {(["yuksek", "orta", "dusuk"] as Importance[]).map((imp) => (
-                <button
-                  key={imp}
-                  type="button"
-                  onClick={() => setImportance(imp)}
-                  className={[
-                    "sketch-box min-h-11 text-sm font-medium",
-                    importance === imp ? "bg-ink text-paper" : "text-ink-soft",
-                  ].join(" ")}
-                >
-                  {IMPORTANCE_LABELS[imp]}
-                </button>
-              ))}
-            </div>
+            <ImportanceSelector value={importance} onChange={setImportance} />
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -119,15 +106,14 @@ export function UnscheduledSheet({ onSelectDate, open, onOpenChange }: Props) {
   const { data } = useStore();
   useBodyScrollLock(open);
 
-  const items = unscheduledOneOffs(data);
+  const items = useMemo(() => unscheduledOneOffs(data), [data]);
 
   return (
     <>
-      <button
-        type="button"
+      <IconButton
         onClick={() => onOpenChange(true)}
-        aria-label="Zamanı belirsiz görevler"
-        className="relative flex h-11 w-11 items-center justify-center rounded-full text-ink active:bg-graphite-wash"
+        ariaLabel="Zamanı belirsiz görevler"
+        className="relative text-ink"
       >
         <QuestionIcon className="h-5 w-5" />
         {items.length > 0 && (
@@ -135,23 +121,9 @@ export function UnscheduledSheet({ onSelectDate, open, onOpenChange }: Props) {
             {items.length}
           </span>
         )}
-      </button>
+      </IconButton>
 
-      {open && (
-        <div className="fixed inset-0 z-30 flex items-end justify-center bg-ink/20 sm:items-center">
-          <div className="sketch-box max-h-[85vh] w-full max-w-md overflow-y-auto overscroll-contain bg-paper p-4 pb-8 shadow-[0_2px_0_var(--pencil)] sm:rounded-none">
-            <div className="flex items-center justify-between pb-2">
-              <h2 className="font-hand text-2xl text-ink">Zamanı belirsiz</h2>
-              <button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                aria-label="Kapat"
-                className="flex h-11 w-11 items-center justify-center rounded-full text-ink-soft active:bg-graphite-wash"
-              >
-                <CloseIcon className="h-5 w-5" />
-              </button>
-            </div>
-
+      <Sheet open={open} onClose={() => onOpenChange(false)} title="Zamanı belirsiz">
             {items.length === 0 ? (
               <p className="py-6 text-center font-hand text-xl text-ink-faint">
                 Günü belirsiz görev yok.
@@ -176,9 +148,7 @@ export function UnscheduledSheet({ onSelectDate, open, onOpenChange }: Props) {
                 </ul>
               </>
             )}
-          </div>
-        </div>
-      )}
+      </Sheet>
     </>
   );
 }

@@ -74,7 +74,6 @@ type StoreContextValue = {
     kind: "bill" | "installment" | "recurringTodo" | "weeklyTodo" | "oneOff" | "creditCard",
     id: string
   ) => void;
-  toggleActive: (kind: "bill" | "recurringTodo" | "weeklyTodo", id: string) => void;
   /** `key` is an Occurrence's `key` (already accounts for daily vs weekly completion grouping). */
   setDone: (key: string, done: boolean) => void;
   syncEnabled: boolean;
@@ -129,13 +128,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setReady(true);
   }, []);
 
-  const pullAndApply = useCallback(async (token: string) => {
+  const pullAndApply = useCallback(async (token: string, opts?: { throwOnError?: boolean }) => {
     setSyncState("syncing");
     try {
       const seed: SyncPayload = { updatedAt: getLocalUpdatedAt(), data: latestDataRef.current };
       const gistId = await ensureGistId(token, seed);
-      gistIdRef.current = gistId;
       const remote = await pullPayload(token, gistId);
+      // Only remembered once the pull itself succeeded: if pullPayload throws,
+      // leaving this unset means the next reconnect retries the pull instead of
+      // schedulePush() silently overwriting the remote backup with stale data.
+      gistIdRef.current = gistId;
       if (remote && remote.updatedAt > getLocalUpdatedAt()) {
         skipNextPushRef.current = true;
         setData(remote.data);
@@ -146,6 +148,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       setSyncState("error");
       setSyncError(err instanceof Error ? err.message : "Senkronizasyon başarısız.");
+      if (opts?.throwOnError) throw err;
     }
   }, []);
 
@@ -220,9 +223,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const configureSync = useCallback<StoreContextValue["configureSync"]>(
     async (token) => {
+      // Verify before persisting/enabling anything, so an invalid token is
+      // rejected back to the settings form instead of being saved as if it
+      // worked (pullAndApply itself never rethrows on later, post-enable calls).
+      await pullAndApply(token, { throwOnError: true });
       persistToken(token);
       setSyncEnabled(true);
-      await pullAndApply(token);
     },
     [pullAndApply]
   );
@@ -344,29 +350,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const toggleActive = useCallback<StoreContextValue["toggleActive"]>((kind, id) => {
-    setData((d) => {
-      if (kind === "bill") {
-        return {
-          ...d,
-          bills: d.bills.map((b) => (b.id === id ? { ...b, active: !b.active } : b)),
-        };
-      }
-      if (kind === "weeklyTodo") {
-        return {
-          ...d,
-          weeklyTodos: d.weeklyTodos.map((t) => (t.id === id ? { ...t, active: !t.active } : t)),
-        };
-      }
-      return {
-        ...d,
-        recurringTodos: d.recurringTodos.map((t) =>
-          t.id === id ? { ...t, active: !t.active } : t
-        ),
-      };
-    });
-  }, []);
-
   const setDone = useCallback<StoreContextValue["setDone"]>((key, done) => {
     setData((d) => ({
       ...d,
@@ -389,7 +372,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       assignOneOff,
       addCreditCard,
       removeItem,
-      toggleActive,
       setDone,
       syncEnabled,
       syncState,
@@ -409,7 +391,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       assignOneOff,
       addCreditCard,
       removeItem,
-      toggleActive,
       setDone,
       syncEnabled,
       syncState,

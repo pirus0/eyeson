@@ -93,33 +93,6 @@ export function TrashIcon({ className }: IconProps) {
   );
 }
 
-export function ReceiptIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} {...base}>
-      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" />
-      <path d="M9 8h6M9 12h6" />
-    </svg>
-  );
-}
-
-export function LayersIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} {...base}>
-      <path d="m12 3 9 5-9 5-9-5 9-5Z" />
-      <path d="m3 13 9 5 9-5" />
-    </svg>
-  );
-}
-
-export function RepeatIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} {...base}>
-      <path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3" />
-      <path d="M17 3v4h-4M7 21v-4h4" />
-    </svg>
-  );
-}
-
 /** Hand-sketched eye/lens: a filled almond silhouette plus a second faint
  * offset stroke, the same "drawn twice" trick used for the app icon and the
  * selected-day ring, so it reads as pencil rather than a clean vector icon.
@@ -215,14 +188,6 @@ export function CloudSyncIcon({ className }: IconProps) {
       <path d={cloud} {...RETRACE_2} />
       <path d={cloud} />
       <path d="M12 10.5v6M9.3 13.7 12 16.5l2.7-2.8" />
-    </svg>
-  );
-}
-
-export function DotIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} {...base}>
-      <path d="M9 12h6M9 8h6M9 16h4" />
     </svg>
   );
 }

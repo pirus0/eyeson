@@ -3,29 +3,19 @@
 import { useState } from "react";
 import { getDate, toKey } from "@/lib/date";
 import type { Importance } from "@/lib/types";
-import { IMPORTANCE_LABELS } from "@/lib/types";
-import { KIND_LABELS, type ItemKind } from "@/lib/itemMeta";
+import { INPUT_CLASS, type ItemKind } from "@/lib/itemMeta";
 import { useStore } from "@/lib/store";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
-import { ChevronUpIcon, CloseIcon } from "./Icons";
+import { ImportanceSelector } from "./ImportanceSelector";
+import { KindSelector } from "./KindSelector";
+import { Sheet } from "./Sheet";
 
 type Props = {
   defaultDate: Date;
   onClose: () => void;
 };
 
-const KIND_ORDER: ItemKind[] = [
-  "oneOff",
-  "bill",
-  "installment",
-  "creditCard",
-  "recurringTodo",
-  "weeklyTodo",
-];
 const TITLE_ONLY_KINDS: ItemKind[] = ["recurringTodo", "weeklyTodo", "oneOff"];
-
-const inputClass =
-  "min-h-11 border-0 border-b-[1.5px] border-ink-faint/70 bg-transparent px-1 text-base text-ink placeholder:text-ink-faint/70 focus:border-ink focus:outline-none";
 
 function clampInt(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min;
@@ -102,37 +92,11 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
   const isTitleOnly = TITLE_ONLY_KINDS.includes(kind);
 
   return (
-    <div className="fixed inset-0 z-20 flex items-end justify-center bg-ink/20 sm:items-center">
-      <div className="sketch-box max-h-[90vh] w-full max-w-md overflow-y-auto overscroll-contain bg-paper p-4 pb-8 shadow-[0_2px_0_var(--pencil)] sm:rounded-none">
-        <div className="flex items-center justify-between pb-2">
-          <h2 className="font-hand text-2xl text-ink">Yeni kayıt</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Kapat"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-ink-soft active:bg-graphite-wash"
-          >
-            <CloseIcon className="h-5 w-5" />
-          </button>
-        </div>
-
-        <label className="flex flex-col gap-1 pb-4 text-sm text-ink-soft">
+    <Sheet open title="Yeni kayıt" onClose={onClose} maxHeightClassName="max-h-[90vh]">
+        <div className="flex flex-col gap-1 pb-4 text-sm text-ink-soft">
           Tür
-          <div className="relative">
-            <select
-              value={kind}
-              onChange={(e) => setKind(e.target.value as ItemKind)}
-              className="sketch-box min-h-11 w-full appearance-none bg-paper px-3 pr-10 text-base text-ink focus:outline-none"
-            >
-              {KIND_ORDER.map((k) => (
-                <option key={k} value={k}>
-                  {KIND_LABELS[k]}
-                </option>
-              ))}
-            </select>
-            <ChevronUpIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 rotate-180 text-ink-soft" />
-          </div>
-        </label>
+          <KindSelector value={kind} onChange={setKind} />
+        </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1 text-sm text-ink-soft">
@@ -141,7 +105,7 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className={inputClass}
+              className={INPUT_CLASS}
               placeholder={
                 kind === "bill"
                   ? "Örn. İnternet"
@@ -165,7 +129,7 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required={kind === "installment"}
-                className={inputClass}
+                className={INPUT_CLASS}
                 placeholder="TL"
               />
             </label>
@@ -182,7 +146,7 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
                 value={dayOfMonth}
                 onChange={(e) => setDayOfMonth(Number(e.target.value))}
                 required
-                className={inputClass}
+                className={INPUT_CLASS}
               />
             </label>
           )}
@@ -199,7 +163,7 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
                   value={statementDay}
                   onChange={(e) => setStatementDay(Number(e.target.value))}
                   required
-                  className={inputClass}
+                  className={INPUT_CLASS}
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm text-ink-soft">
@@ -212,7 +176,7 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
                   value={dueDay}
                   onChange={(e) => setDueDay(Number(e.target.value))}
                   required
-                  className={inputClass}
+                  className={INPUT_CLASS}
                 />
               </label>
               <p className="text-xs text-ink-faint">
@@ -230,7 +194,7 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   required
-                  className={inputClass}
+                  className={INPUT_CLASS}
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm text-ink-soft">
@@ -243,7 +207,7 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
                   value={count}
                   onChange={(e) => setCount(Number(e.target.value))}
                   required
-                  className={inputClass}
+                  className={INPUT_CLASS}
                 />
               </label>
             </>
@@ -257,7 +221,7 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 required={kind !== "oneOff"}
-                className={inputClass}
+                className={INPUT_CLASS}
               />
               {kind === "oneOff" && (
                 <span className="text-xs text-ink-faint">
@@ -271,21 +235,7 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
           {isPayment && (
             <div className="flex flex-col gap-1 text-sm text-ink-soft">
               Önem
-              <div className="grid grid-cols-3 gap-2">
-                {(["yuksek", "orta", "dusuk"] as Importance[]).map((imp) => (
-                  <button
-                    key={imp}
-                    type="button"
-                    onClick={() => setImportance(imp)}
-                    className={[
-                      "sketch-box min-h-11 text-sm font-medium",
-                      importance === imp ? "bg-ink text-paper" : "text-ink-soft",
-                    ].join(" ")}
-                  >
-                    {IMPORTANCE_LABELS[imp]}
-                  </button>
-                ))}
-              </div>
+              <ImportanceSelector value={importance} onChange={setImportance} />
             </div>
           )}
 
@@ -296,7 +246,6 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
             Ekle
           </button>
         </form>
-      </div>
-    </div>
+    </Sheet>
   );
 }

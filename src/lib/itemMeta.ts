@@ -28,3 +28,7 @@ export function formatAmount(amount?: number): string {
   if (amount === undefined) return "";
   return amount.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) + " TL";
 }
+
+/** Shared text-input look for every add/assign form field. */
+export const INPUT_CLASS =
+  "min-h-11 border-0 border-b-[1.5px] border-ink-faint/70 bg-transparent px-1 text-base text-ink placeholder:text-ink-faint/70 focus:border-ink focus:outline-none";

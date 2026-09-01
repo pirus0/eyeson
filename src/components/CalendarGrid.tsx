@@ -1,9 +1,10 @@
 "use client";
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { addMonths, isSameDay, monthGrid, formatMonthTitle, toKey } from "@/lib/date";
+import { addMonths, isSameDay, formatMonthTitle, toKey } from "@/lib/date";
 import { ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, EyeIcon } from "./Icons";
-import type { Occurrence } from "@/lib/occurrences";
+import { IconButton } from "./IconButton";
+import { occurrenceImportance, type Occurrence } from "@/lib/occurrences";
 
 const WEEKDAYS = ["Pt", "Sa", "Ça", "Pe", "Cu", "Ct", "Pz"];
 
@@ -14,6 +15,10 @@ const EMPTY_OCC: Occurrence[] = [];
 
 type Props = {
   monthAnchor: Date;
+  /** Both computed once by the parent (which also needs them to derive its
+   * occurrence-fetch range) instead of being independently rebuilt here. */
+  days: Date[];
+  nextMonthDays: Date[];
   selected: Date;
   today: Date;
   occurrencesByDay: Map<string, Occurrence[]>;
@@ -67,17 +72,7 @@ type DayCellProps = {
  * these props do, so this should skip re-rendering entirely on every
  * pointermove instead of re-computing all ~80 cells per frame. */
 const DayCell = memo(function DayCell({ day, occ, inMonth, isToday, isSelected, onSelect }: DayCellProps) {
-  const urgentOccs = occ.filter((o) => {
-    if (o.item.kind === "bill" || o.item.kind === "installment") {
-      return o.item.importance === "yuksek";
-    }
-    // A credit card's statement date is informational only — the flame is
-    // reserved for the due date, so you're not chasing two lit days per card.
-    if (o.item.kind === "creditCard") {
-      return o.role === "due" && o.item.importance === "yuksek";
-    }
-    return false;
-  });
+  const urgentOccs = occ.filter((o) => occurrenceImportance(o) === "yuksek");
   const hasUrgentPayment = urgentOccs.length > 0;
   // Lit (solid black) while any urgent payment that day is still unpaid;
   // once they're all settled the eye fades instead of disappearing outright.
@@ -125,8 +120,10 @@ const DayCell = memo(function DayCell({ day, occ, inMonth, isToday, isSelected, 
   );
 });
 
-export function CalendarGrid({
+export const CalendarGrid = memo(function CalendarGrid({
   monthAnchor,
+  days,
+  nextMonthDays,
   selected,
   today,
   occurrencesByDay,
@@ -134,7 +131,6 @@ export function CalendarGrid({
   onPrevMonth,
   onNextMonth,
 }: Props) {
-  const days = useMemo(() => monthGrid(monthAnchor), [monthAnchor]);
   const currentMonth = monthAnchor.getMonth();
   const dayByKey = useMemo(() => {
     const m = new Map<string, Date>();
@@ -144,9 +140,6 @@ export function CalendarGrid({
 
   const nextMonthAnchor = useMemo(() => addMonths(monthAnchor, 1), [monthAnchor]);
   const nextMonth = nextMonthAnchor.getMonth();
-  // Full month now (not just a two-week teaser) — the user wants to be able
-  // to pull all the way through to the end of next month.
-  const nextMonthDays = useMemo(() => monthGrid(nextMonthAnchor), [nextMonthAnchor]);
 
   // Pushing up on the grid (the same gesture that scrolls a page down to
   // reveal what's further along) peeks at next month without changing
@@ -249,28 +242,59 @@ export function CalendarGrid({
     [onSelect]
   );
 
+  // Hoisted out of the render body so a peek-only re-render (height changes
+  // ~60x/sec while dragging) reuses these element arrays instead of
+  // recomputing toKey/isSameDay for all ~84 cells on every frame.
+  const dayGrid = useMemo(
+    () =>
+      days.map((day) => {
+        const key = toKey(day);
+        return (
+          <DayCell
+            key={key}
+            day={day}
+            occ={occurrencesByDay.get(key) ?? EMPTY_OCC}
+            inMonth={day.getMonth() === currentMonth}
+            isToday={isSameDay(day, today)}
+            isSelected={isSameDay(day, selected)}
+            onSelect={onSelect}
+          />
+        );
+      }),
+    [days, currentMonth, today, selected, occurrencesByDay, onSelect]
+  );
+
+  const nextMonthGrid = useMemo(
+    () =>
+      nextMonthDays.map((day) => {
+        const key = toKey(day);
+        return (
+          <DayCell
+            key={key}
+            day={day}
+            occ={occurrencesByDay.get(key) ?? EMPTY_OCC}
+            inMonth={day.getMonth() === nextMonth}
+            isToday={isSameDay(day, today)}
+            isSelected={isSameDay(day, selected)}
+            onSelect={handleSelectFromPeek}
+          />
+        );
+      }),
+    [nextMonthDays, nextMonth, today, selected, occurrencesByDay, handleSelectFromPeek]
+  );
+
   return (
     <div>
       <div className="flex items-center justify-between px-1 pb-2">
-        <button
-          type="button"
-          onClick={onPrevMonth}
-          aria-label="Önceki ay"
-          className="flex h-11 w-11 items-center justify-center rounded-full text-ink-soft active:bg-graphite-wash"
-        >
+        <IconButton onClick={onPrevMonth} ariaLabel="Önceki ay">
           <ChevronLeftIcon className="h-5 w-5" />
-        </button>
+        </IconButton>
         <h2 className="font-hand text-3xl capitalize leading-none text-ink">
           {formatMonthTitle(monthAnchor)}
         </h2>
-        <button
-          type="button"
-          onClick={onNextMonth}
-          aria-label="Sonraki ay"
-          className="flex h-11 w-11 items-center justify-center rounded-full text-ink-soft active:bg-graphite-wash"
-        >
+        <IconButton onClick={onNextMonth} ariaLabel="Sonraki ay">
           <ChevronRightIcon className="h-5 w-5" />
-        </button>
+        </IconButton>
       </div>
 
       <div className="grid grid-cols-7 gap-y-1 text-center font-hand text-lg text-ink-faint">
@@ -289,20 +313,7 @@ export function CalendarGrid({
         onPointerUp={endPeek}
         onPointerCancel={endPeek}
       >
-        {days.map((day) => {
-          const key = toKey(day);
-          return (
-            <DayCell
-              key={key}
-              day={day}
-              occ={occurrencesByDay.get(key) ?? EMPTY_OCC}
-              inMonth={day.getMonth() === currentMonth}
-              isToday={isSameDay(day, today)}
-              isSelected={isSameDay(day, selected)}
-              onSelect={onSelect}
-            />
-          );
-        })}
+        {dayGrid}
       </div>
 
       {peek === 0 && (
@@ -323,23 +334,10 @@ export function CalendarGrid({
             {formatMonthTitle(nextMonthAnchor)}
           </p>
           <div className="grid grid-cols-7 gap-y-1">
-            {nextMonthDays.map((day) => {
-              const key = toKey(day);
-              return (
-                <DayCell
-                  key={key}
-                  day={day}
-                  occ={occurrencesByDay.get(key) ?? EMPTY_OCC}
-                  inMonth={day.getMonth() === nextMonth}
-                  isToday={isSameDay(day, today)}
-                  isSelected={isSameDay(day, selected)}
-                  onSelect={handleSelectFromPeek}
-                />
-              );
-            })}
+            {nextMonthGrid}
           </div>
         </div>
       </div>
     </div>
   );
-}
+});

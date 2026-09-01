@@ -40,6 +40,20 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html,
+body {
+  /* Nothing in this app scrolls sideways — a drag that starts on plain
+     content (not a button, not one of the few elements that opt back into
+     horizontal panning below) should never be interpreted as a page-level
+     gesture. Without this, an accidental horizontal drag anywhere over a
+     sheet/menu reads as the browser's own swipe-back/rubber-band gesture and
+     visibly shifts the whole view sideways — the "menus wobble" bug. `pan-y`
+     keeps normal vertical scrolling; `overscroll-behavior: none` also drops
+     the bounce/pull-to-refresh effect at the top/bottom edges. */
+  touch-action: pan-y;
+  overscroll-behavior: none;
+}
+
 body {
   background-color: var(--paper);
   color: var(--ink);
@@ -116,4 +130,21 @@ body {
 
 .sketch-rotate-r {
   transform: rotate(0.35deg);
+}
+
+@keyframes eyes-on-bounce {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.eyes-on-bounce {
+  display: inline-block;
+  animation: eyes-on-bounce 320ms ease;
 }

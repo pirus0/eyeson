@@ -184,6 +184,38 @@ export function occurrencesForRange(
   return result;
 }
 
+/** The one place that decides which occurrence kinds carry an importance
+ * level, and which one — the calendar's urgent-day marker, the day panel's
+ * importance dot/sink-to-bottom rule, and the reminders list all read this
+ * instead of each re-deriving their own kind list (which had already drifted:
+ * an assigned one-off with high importance lit up everywhere except the
+ * calendar day cell, because that filter alone forgot to include "oneOff"). */
+export function occurrenceImportance(occ: {
+  item: AnyItem;
+  role?: Occurrence["role"];
+}): Importance | undefined {
+  const { item } = occ;
+  if (item.kind === "bill" || item.kind === "installment" || item.kind === "oneOff") {
+    return item.importance;
+  }
+  // A credit card's statement date is informational only — urgency belongs
+  // to the due date alone, so you're not chasing two lit days per card.
+  if (item.kind === "creditCard" && occ.role === "due") {
+    return item.importance;
+  }
+  return undefined;
+}
+
+/** The amount to show for an occurrence, if any — bills/installments/cards
+ * carry one, everything else (todos, unassigned one-offs) doesn't. */
+export function occurrenceAmount(occ: { item: AnyItem }): number | undefined {
+  const { item } = occ;
+  if (item.kind === "bill" || item.kind === "installment" || item.kind === "creditCard") {
+    return item.amount;
+  }
+  return undefined;
+}
+
 export function occurrencesForDay(
   data: StoreData,
   completions: CompletionMap,
@@ -217,25 +249,24 @@ export function computeReminders(
   // as overdue instead of silently aging out of the reminder list.
   const rangeStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 400);
   const rangeEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 31);
-  const occurrences = occurrencesForRange(data, completions, rangeStart, rangeEnd);
+  // recurringTodo/weeklyTodo are never reminders (filtered out below anyway) but
+  // their occurrence predicate is true almost every day — excluding them here
+  // stops occurrencesForRange from materializing ~430 throwaway entries each.
+  const relevantData: StoreData = { ...data, recurringTodos: [], weeklyTodos: [] };
+  const occurrences = occurrencesForRange(relevantData, completions, rangeStart, rangeEnd);
   const todayStart = startOfDay(today);
 
   const reminders: Reminder[] = [];
   for (const occ of occurrences) {
     const item = occ.item;
-    const isPayment = item.kind === "bill" || item.kind === "installment" || item.kind === "creditCard";
-    const isImportantOneOff = item.kind === "oneOff" && item.importance !== undefined;
-    if (!isPayment && !isImportantOneOff) continue;
-    // The statement date is informational (nothing to pay yet) — only the
-    // due date carries urgency, so only it becomes a reminder.
-    if (item.kind === "creditCard" && occ.role !== "due") continue;
     if (occ.done) continue;
+    const importance = occurrenceImportance(occ);
+    if (importance === undefined) continue;
     const daysUntilDue = differenceInCalendarDays(occ.date, todayStart);
     const overdue = daysUntilDue < 0;
-    const importance = item.importance as Importance;
     const threshold = IMPORTANCE_THRESHOLD_DAYS[importance];
     if (!overdue && daysUntilDue > threshold) continue;
-    reminders.push({ ...occ, item, daysUntilDue, overdue });
+    reminders.push({ ...occ, item: item as PaymentItem | OneOff, daysUntilDue, overdue });
   }
 
   reminders.sort((a, b) => {
@@ -261,7 +292,11 @@ export function computeOverdue(
   const todayStart = startOfDay(today);
   const rangeStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), todayStart.getDate() - 400);
   const rangeEnd = new Date(todayStart.getFullYear(), todayStart.getMonth(), todayStart.getDate() - 1);
-  const occurrences = occurrencesForRange(data, completions, rangeStart, rangeEnd);
+  // recurringTodo is filtered out below anyway (it resets fresh each day, never
+  // "overdue") — excluding it here stops occurrencesForRange from materializing
+  // ~400 throwaway entries per item.
+  const relevantData: StoreData = { ...data, recurringTodos: [] };
+  const occurrences = occurrencesForRange(relevantData, completions, rangeStart, rangeEnd);
   const currentWeekStart = weekStart(todayStart);
 
   const seen = new Set<string>();

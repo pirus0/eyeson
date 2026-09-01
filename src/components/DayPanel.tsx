@@ -1,7 +1,7 @@
 "use client";
 
 import type { Occurrence } from "@/lib/occurrences";
-import { creditCardCompanionDate } from "@/lib/occurrences";
+import { creditCardCompanionDate, occurrenceAmount, occurrenceImportance } from "@/lib/occurrences";
 import { formatDayTitle, formatShort } from "@/lib/date";
 import { formatAmount, itemTitle, IMPORTANCE_DOT_CLASS } from "@/lib/itemMeta";
 import { CheckIcon, PlusIcon, TrashIcon } from "./Icons";
@@ -25,15 +25,7 @@ const KIND_ORDER = {
 /** A very-important payment that's been handled sinks to the bottom of the
  * day's list instead of staying up top where the flame drew attention to it. */
 function isSettledUrgent(occ: Occurrence): boolean {
-  const { item } = occ;
-  if (item.kind === "creditCard") {
-    return occ.role === "due" && item.importance === "yuksek" && occ.done;
-  }
-  return (
-    (item.kind === "bill" || item.kind === "installment" || item.kind === "oneOff") &&
-    item.importance === "yuksek" &&
-    occ.done
-  );
+  return occurrenceImportance(occ) === "yuksek" && occ.done;
 }
 
 type RowProps = {
@@ -47,15 +39,8 @@ function OccurrenceRow({ occ, overdue = false, onToggleDone, onRemove }: RowProp
   const { item } = occ;
   const isCreditCard = item.kind === "creditCard";
   const isStatementRow = isCreditCard && occ.role === "statement";
-  const amount =
-    item.kind === "bill" || item.kind === "installment" || isCreditCard ? item.amount : undefined;
-  const importance =
-    item.kind === "bill" ||
-    item.kind === "installment" ||
-    item.kind === "oneOff" ||
-    (isCreditCard && occ.role === "due")
-      ? item.importance
-      : undefined;
+  const amount = occurrenceAmount(occ);
+  const importance = occurrenceImportance(occ);
   const companionLabel = isCreditCard
     ? `${occ.role === "due" ? "Kesim" : "Son ödeme"}: ${formatShort(
         creditCardCompanionDate(item, occ.date, occ.role!)

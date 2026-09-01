@@ -3,11 +3,13 @@
 import { useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
-import { computeReminders, type Reminder } from "@/lib/occurrences";
+import { computeReminders, occurrenceAmount, type Reminder } from "@/lib/occurrences";
 import { formatShort } from "@/lib/date";
 import { formatAmount, itemTitle, IMPORTANCE_DOT_CLASS } from "@/lib/itemMeta";
 import type { Importance } from "@/lib/types";
-import { BellIcon, CheckIcon, CloseIcon } from "./Icons";
+import { BellIcon, CheckIcon } from "./Icons";
+import { IconButton } from "./IconButton";
+import { Sheet } from "./Sheet";
 
 type Props = {
   today: Date;
@@ -75,7 +77,7 @@ function ReminderRow({
   }
 
   const revealClass = dragX !== 0 ? "opacity-100" : "opacity-0";
-  const amount = reminder.item.kind === "oneOff" ? undefined : reminder.item.amount;
+  const amount = occurrenceAmount(reminder);
   const importance = reminder.item.importance as Importance;
 
   return (
@@ -143,60 +145,39 @@ export function BellMenu({ today, onSelectDate, open, onOpenChange }: Props) {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => onOpenChange(true)}
-        aria-label="Hatırlatıcılar"
-        className="relative flex h-11 w-11 items-center justify-center rounded-full text-ink active:bg-graphite-wash"
-      >
+      <IconButton onClick={() => onOpenChange(true)} ariaLabel="Hatırlatıcılar" className="relative text-ink">
         <BellIcon className="h-6 w-6" />
         {reminders.length > 0 && (
           <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-pen px-1 text-[10px] font-semibold text-paper">
             {reminders.length}
           </span>
         )}
-      </button>
+      </IconButton>
 
-      {open && (
-        <div className="fixed inset-0 z-30 flex items-end justify-center bg-ink/20 sm:items-center">
-          <div className="sketch-box max-h-[85vh] w-full max-w-md overflow-y-auto overscroll-contain bg-paper p-4 pb-8 shadow-[0_2px_0_var(--pencil)] sm:rounded-none">
-            <div className="flex items-center justify-between pb-2">
-              <h2 className="font-hand text-2xl text-ink">Yaklaşan ödemeler</h2>
-              <button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                aria-label="Kapat"
-                className="flex h-11 w-11 items-center justify-center rounded-full text-ink-soft active:bg-graphite-wash"
-              >
-                <CloseIcon className="h-5 w-5" />
-              </button>
-            </div>
-
-            {reminders.length === 0 ? (
-              <p className="py-6 text-center font-hand text-xl text-ink-faint">Yaklaşan ödeme yok.</p>
-            ) : (
-              <>
-                <p className="px-1 pb-2 text-xs text-ink-faint">
-                  Hallettiysen kaydırarak işaretleyebilirsin.
-                </p>
-                <ul className="flex flex-col">
-                  {reminders.map((r) => (
-                    <ReminderRow
-                      key={r.key}
-                      reminder={r}
-                      onOpen={() => {
-                        onSelectDate(r.date);
-                        onOpenChange(false);
-                      }}
-                      onDismiss={() => setDone(r.key, true)}
-                    />
-                  ))}
-                </ul>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <Sheet open={open} onClose={() => onOpenChange(false)} title="Yaklaşan ödemeler">
+        {reminders.length === 0 ? (
+          <p className="py-6 text-center font-hand text-xl text-ink-faint">Yaklaşan ödeme yok.</p>
+        ) : (
+          <>
+            <p className="px-1 pb-2 text-xs text-ink-faint">
+              Hallettiysen kaydırarak işaretleyebilirsin.
+            </p>
+            <ul className="flex flex-col">
+              {reminders.map((r) => (
+                <ReminderRow
+                  key={r.key}
+                  reminder={r}
+                  onOpen={() => {
+                    onSelectDate(r.date);
+                    onOpenChange(false);
+                  }}
+                  onDismiss={() => setDone(r.key, true)}
+                />
+              ))}
+            </ul>
+          </>
+        )}
+      </Sheet>
     </>
   );
 }

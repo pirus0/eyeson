@@ -101,14 +101,25 @@ export async function ensureGistId(token: string, seed: SyncPayload): Promise<st
   return createGist(token, seed);
 }
 
+/** Gist files over ~1MB come back with `truncated: true` and cut-off
+ * `content` — the full body has to be re-fetched from `raw_url` instead. */
+async function fetchRawContent(token: string, rawUrl: string): Promise<string> {
+  const res = await fetch(rawUrl, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(statusMessage(res.status));
+  return res.text();
+}
+
 export async function pullPayload(token: string, gistId: string): Promise<SyncPayload | null> {
   const res = await githubFetch(token, `/gists/${gistId}`);
   if (!res.ok) throw new Error(statusMessage(res.status));
   const json = await res.json();
   const file = json.files?.[GIST_FILENAME];
-  if (!file?.content) return null;
+  if (!file) return null;
+  const content: string | undefined =
+    file.truncated && file.raw_url ? await fetchRawContent(token, file.raw_url) : file.content;
+  if (!content) return null;
   try {
-    return JSON.parse(file.content) as SyncPayload;
+    return JSON.parse(content) as SyncPayload;
   } catch {
     return null;
   }

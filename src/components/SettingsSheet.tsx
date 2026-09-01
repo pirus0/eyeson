@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
-import { CloseIcon, CloudSyncIcon } from "./Icons";
+import { CloudSyncIcon } from "./Icons";
+import { IconButton } from "./IconButton";
+import { Sheet } from "./Sheet";
 
 type Props = {
   open: boolean;
@@ -35,33 +37,14 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => onOpenChange(true)}
-        aria-label="Yedekleme ayarları"
-        className="relative flex h-11 w-11 items-center justify-center rounded-full text-ink active:bg-graphite-wash"
-      >
+      <IconButton onClick={() => onOpenChange(true)} ariaLabel="Yedekleme ayarları" className="relative text-ink">
         <CloudSyncIcon className="h-5 w-5" />
         {syncEnabled && syncState === "error" && (
           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-pen" />
         )}
-      </button>
+      </IconButton>
 
-      {open && (
-        <div className="fixed inset-0 z-30 flex items-end justify-center bg-ink/20 sm:items-center">
-          <div className="sketch-box-alt max-h-[85vh] w-full max-w-md overflow-y-auto overscroll-contain bg-paper p-4 pb-8 shadow-[0_2px_0_var(--pencil)] sm:rounded-none">
-            <div className="flex items-center justify-between pb-2">
-              <h2 className="font-hand text-2xl text-ink">Yedekleme</h2>
-              <button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                aria-label="Kapat"
-                className="flex h-11 w-11 items-center justify-center rounded-full text-ink-soft active:bg-graphite-wash"
-              >
-                <CloseIcon className="h-5 w-5" />
-              </button>
-            </div>
-
+      <Sheet open={open} onClose={() => onOpenChange(false)} title="Yedekleme" variant="box-alt">
             <p className="pb-3 text-sm text-ink-soft">
               Verilerin bu cihazda saklanır. İstersen private bir GitHub Gist&apos;e de
               yedeklenmesini sağlayabilirsin — uygulamayı silip yeniden kurarsan sadece
@@ -113,9 +96,7 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
                 </button>
               </div>
             )}
-          </div>
-        </div>
-      )}
+      </Sheet>
     </>
   );
 }
