@@ -2,7 +2,14 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addMonths, isSameDay, formatMonthTitle, toKey } from "@/lib/date";
-import { ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, EyeIcon } from "./Icons";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronUpIcon,
+  EyeMediumIcon,
+  EyeUrgentDoneIcon,
+  EyeUrgentIcon,
+} from "./Icons";
 import { IconButton } from "./IconButton";
 import { occurrenceImportance, type Occurrence } from "@/lib/occurrences";
 
@@ -74,13 +81,41 @@ type DayCellProps = {
 const DayCell = memo(function DayCell({ day, occ, inMonth, isToday, isSelected, onSelect }: DayCellProps) {
   const urgentOccs = occ.filter((o) => occurrenceImportance(o) === "yuksek");
   const hasUrgentPayment = urgentOccs.length > 0;
-  // Lit (solid black) while any urgent payment that day is still unpaid;
-  // once they're all settled the eye fades instead of disappearing outright.
+  // Lit (red) while any urgent payment that day is still unpaid; once
+  // they're all settled the eye fades instead of disappearing outright.
   const urgentPending = urgentOccs.some((o) => !o.done);
+  // Medium importance only gets its own (plain, unlashed) eye when there's
+  // no urgent one already claiming the day's single icon slot, and — unlike
+  // the urgent eye, which fades to EyeUrgentDoneIcon — it disappears
+  // outright once settled instead of sticking around faded.
+  const mediumOccs = occ.filter((o) => occurrenceImportance(o) === "orta");
+  const mediumPending = mediumOccs.some((o) => !o.done);
+  const hasMediumPayment = !hasUrgentPayment && mediumPending;
   // Carried-over overdue items only ever land on today's cell (see
   // computeOverdue) — this just needs to turn that day's number red too.
   const hasOverdueCarry = occ.some((o) => o.carriedOverdue);
   const isRed = urgentPending || hasOverdueCarry;
+
+  // Both eyes fill their whole slot solidly while pending, so the number
+  // drawn on top needs a color that contrasts with THAT fill, not with the
+  // page background — same reasoning as the done-checkbox's bg-ink/text-paper
+  // pairing elsewhere in DayPanel. Using the eye's own color here (e.g.
+  // text-red-pen on a red-pen fill) would repeat the red-on-red /
+  // black-on-black bug this codebase has hit before. ink-invert stays pale
+  // in both themes and red-pen stays reddish in both, so it reads on the
+  // urgent eye either way; the medium eye is filled with `ink` itself, which
+  // flips light/dark with the theme, so its contrast color must flip too —
+  // `paper` does exactly that (paper is ink's inverse in both themes).
+  const numberColorClass =
+    hasUrgentPayment && urgentPending
+      ? "text-ink-invert"
+      : hasMediumPayment
+        ? "text-paper"
+        : hasOverdueCarry
+          ? "text-red-pen"
+          : !inMonth
+            ? "text-ink-faint/50"
+            : "text-ink";
 
   return (
     <button
@@ -92,21 +127,22 @@ const DayCell = memo(function DayCell({ day, occ, inMonth, isToday, isSelected, 
       <span
         className={[
           "relative flex h-11 w-11 items-center justify-center text-sm",
-          isRed
-            ? "text-red-pen"
-            : !inMonth
-              ? "text-ink-faint/50"
-              : "text-ink",
+          numberColorClass,
           isSelected ? "font-semibold" : "",
         ].join(" ")}
       >
-        {hasUrgentPayment && (
-          <EyeIcon
-            className={[
-              "pointer-events-none absolute inset-0 h-full w-full scale-125",
-              urgentPending ? "text-ink" : "text-ink-faint/40",
-            ].join(" ")}
-          />
+        {hasUrgentPayment &&
+          (urgentPending ? (
+            <EyeUrgentIcon
+              className="pointer-events-none absolute inset-0 h-full w-full scale-125 text-red-pen"
+            />
+          ) : (
+            <EyeUrgentDoneIcon
+              className="pointer-events-none absolute inset-0 h-full w-full scale-125 text-ink-faint/40"
+            />
+          ))}
+        {hasMediumPayment && (
+          <EyeMediumIcon className="pointer-events-none absolute inset-0 h-full w-full scale-125 text-ink" />
         )}
         {isSelected && (
           <SketchRing color={isRed ? "var(--red-pen)" : "var(--ink)"} />

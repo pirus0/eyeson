@@ -10,7 +10,7 @@ import { CalendarGrid } from "./CalendarGrid";
 import { DayPanel } from "./DayPanel";
 import { AddItemSheet } from "./AddItemSheet";
 import { BellMenu } from "./BellMenu";
-import { UnscheduledSheet } from "./UnscheduledSheet";
+import { UnscheduledButton, UnscheduledPanel } from "./UnscheduledSheet";
 
 /** A tap-tap within this window counts as a double-tap — more reliable than
  * the native `dblclick` event, which mobile Safari doesn't always fire
@@ -42,7 +42,7 @@ export function CalendarApp() {
   // so opening one always closes whichever other was already open, instead
   // of each tracking its own boolean and letting two stack at once.
   const [activeSheet, setActiveSheet] = useState<
-    "settings" | "bell" | "add" | "unscheduled" | null
+    "settings" | "bell" | "add" | "unscheduled" | "add-unscheduled" | null
   >(null);
 
   // If the day rolls over while the app is open, follow along — but only
@@ -69,6 +69,15 @@ export function CalendarApp() {
   // pull-up peek (which now shows the whole next month) has real
   // occurrence data too, not just bare numbers.
   const rangeEnd = nextMonthDays[nextMonthDays.length - 1];
+
+  // Tapping a day on the calendar while the "zamanı belirsiz" panel is open
+  // exits back to the normal day view for that date — the calendar stays
+  // interactive underneath the panel, so a tap there should feel like
+  // navigation, not a no-op.
+  const handleSelectDay = useCallback((date: Date) => {
+    setSelected(date);
+    setActiveSheet((s) => (s === "unscheduled" ? null : s));
+  }, []);
 
   const handlePrevMonth = useCallback(() => setMonthAnchor((m) => addMonths(m, -1)), []);
   const handleNextMonth = useCallback(() => setMonthAnchor((m) => addMonths(m, 1)), []);
@@ -114,13 +123,11 @@ export function CalendarApp() {
           Eyes On
         </h1>
         <div className="flex items-center gap-1">
-          <UnscheduledSheet
-            onSelectDate={(date) => {
-              setSelected(date);
-              setMonthAnchor(date);
-            }}
-            open={activeSheet === "unscheduled"}
-            onOpenChange={(v) => setActiveSheet(v ? "unscheduled" : null)}
+          <UnscheduledButton
+            active={activeSheet === "unscheduled"}
+            onClick={() =>
+              setActiveSheet((s) => (s === "unscheduled" ? null : "unscheduled"))
+            }
           />
           <BellMenu
             today={today}
@@ -141,19 +148,37 @@ export function CalendarApp() {
         selected={selected}
         today={today}
         occurrencesByDay={occurrencesByDay}
-        onSelect={setSelected}
+        onSelect={handleSelectDay}
         onPrevMonth={handlePrevMonth}
         onNextMonth={handleNextMonth}
       />
 
-      <DayPanel
-        day={selected}
-        occurrences={selectedOccurrences}
-        onAdd={() => setActiveSheet("add")}
-      />
+      {activeSheet === "unscheduled" ? (
+        <UnscheduledPanel
+          onSelectDate={(date) => {
+            setSelected(date);
+            setMonthAnchor(date);
+            setActiveSheet(null);
+          }}
+          onAdd={() => setActiveSheet("add-unscheduled")}
+        />
+      ) : (
+        <DayPanel
+          day={selected}
+          occurrences={selectedOccurrences}
+          onAdd={() => setActiveSheet("add")}
+        />
+      )}
 
       {activeSheet === "add" && (
         <AddItemSheet defaultDate={selected} onClose={() => setActiveSheet(null)} />
+      )}
+      {activeSheet === "add-unscheduled" && (
+        <AddItemSheet
+          defaultDate={selected}
+          unscheduled
+          onClose={() => setActiveSheet("unscheduled")}
+        />
       )}
     </div>
   );

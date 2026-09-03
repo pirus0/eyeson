@@ -13,6 +13,10 @@ import { Sheet } from "./Sheet";
 type Props = {
   defaultDate: Date;
   onClose: () => void;
+  /** Opened from the "Zamanı belirsiz" panel's + button — the date field
+   * starts empty (instead of pre-filled with defaultDate) since the point
+   * is to add a one-off task with no day yet. */
+  unscheduled?: boolean;
 };
 
 const TITLE_ONLY_KINDS: ItemKind[] = ["recurringTodo", "weeklyTodo", "oneOff"];
@@ -31,7 +35,7 @@ function parseAmount(raw: string): number | undefined {
   return n;
 }
 
-export function AddItemSheet({ defaultDate, onClose }: Props) {
+export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Props) {
   const { addBill, addInstallment, addCreditCard, addRecurringTodo, addWeeklyTodo, addOneOff } =
     useStore();
   useBodyScrollLock(true);
@@ -41,7 +45,7 @@ export function AddItemSheet({ defaultDate, onClose }: Props) {
   const [amount, setAmount] = useState("");
   const [dayOfMonth, setDayOfMonth] = useState(getDate(defaultDate));
   const [importance, setImportance] = useState<Importance>("orta");
-  const [startDate, setStartDate] = useState(toKey(defaultDate));
+  const [startDate, setStartDate] = useState(unscheduled ? "" : toKey(defaultDate));
   const [count, setCount] = useState(3);
   const [statementDay, setStatementDay] = useState(getDate(defaultDate));
   // Just a starting suggestion (typical ~10 day gap) — the user adjusts to

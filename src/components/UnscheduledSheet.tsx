@@ -2,21 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { unscheduledOneOffs } from "@/lib/occurrences";
 import { fromKey, todayKey } from "@/lib/date";
 import { type Importance } from "@/lib/types";
 import { INPUT_CLASS } from "@/lib/itemMeta";
-import { QuestionIcon, TrashIcon } from "./Icons";
+import { PlusIcon, QuestionIcon, TrashIcon } from "./Icons";
 import { IconButton } from "./IconButton";
 import { ImportanceSelector } from "./ImportanceSelector";
-import { Sheet } from "./Sheet";
-
-type Props = {
-  onSelectDate: (date: Date) => void;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-};
 
 function AssignRow({
   id,
@@ -102,53 +94,76 @@ function AssignRow({
   );
 }
 
-export function UnscheduledSheet({ onSelectDate, open, onOpenChange }: Props) {
-  const { data } = useStore();
-  useBodyScrollLock(open);
+type ButtonProps = {
+  active: boolean;
+  onClick: () => void;
+};
 
+/** Header trigger — toggles the inline panel below the calendar (see
+ * UnscheduledPanel) instead of opening a full-screen sheet, so the calendar
+ * stays visible while browsing undated tasks. */
+export function UnscheduledButton({ active, onClick }: ButtonProps) {
+  const { data } = useStore();
+  const count = useMemo(() => unscheduledOneOffs(data).length, [data]);
+
+  return (
+    <IconButton
+      onClick={onClick}
+      ariaLabel="Zamanı belirsiz görevler"
+      className={`relative ${active ? "bg-graphite-wash text-ink" : "text-ink"}`}
+    >
+      <QuestionIcon className="h-5 w-5" />
+      {count > 0 && (
+        <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-pencil px-1 text-[10px] font-semibold text-paper">
+          {count}
+        </span>
+      )}
+    </IconButton>
+  );
+}
+
+type PanelProps = {
+  onSelectDate: (date: Date) => void;
+  onAdd: () => void;
+};
+
+/** Replaces DayPanel in the same slot below the calendar while active — it
+ * intentionally does NOT cover the calendar or header, just the space a
+ * selected day's list would otherwise take. */
+export function UnscheduledPanel({ onSelectDate, onAdd }: PanelProps) {
+  const { data } = useStore();
   const items = useMemo(() => unscheduledOneOffs(data), [data]);
 
   return (
-    <>
-      <IconButton
-        onClick={() => onOpenChange(true)}
-        ariaLabel="Zamanı belirsiz görevler"
-        className="relative text-ink"
-      >
-        <QuestionIcon className="h-5 w-5" />
-        {items.length > 0 && (
-          <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-pencil px-1 text-[10px] font-semibold text-paper">
-            {items.length}
-          </span>
-        )}
-      </IconButton>
+    <div className="mt-2 border-t border-dashed border-ink-faint/60 pt-3">
+      <div className="flex items-center justify-between px-1 pb-2">
+        <h3 className="font-hand text-2xl text-ink-soft">Zamanı belirsiz</h3>
+        <button
+          type="button"
+          onClick={onAdd}
+          aria-label="Ekle"
+          className="sketch-box sketch-rotate flex h-11 w-11 items-center justify-center text-ink active:bg-graphite-wash"
+        >
+          <PlusIcon className="h-5 w-5" />
+        </button>
+      </div>
 
-      <Sheet open={open} onClose={() => onOpenChange(false)} title="Zamanı belirsiz">
-            {items.length === 0 ? (
-              <p className="py-6 text-center font-hand text-xl text-ink-faint">
-                Günü belirsiz görev yok.
-              </p>
-            ) : (
-              <>
-                <p className="px-1 pb-2 text-xs text-ink-faint">
-                  Günü ve zamanı henüz belirlenmemiş görevler. Hazır olduğunda ata.
-                </p>
-                <ul className="flex flex-col">
-                  {items.map((o) => (
-                    <AssignRow
-                      key={o.id}
-                      id={o.id}
-                      title={o.title}
-                      onDone={(date) => {
-                        onSelectDate(date);
-                        onOpenChange(false);
-                      }}
-                    />
-                  ))}
-                </ul>
-              </>
-            )}
-      </Sheet>
-    </>
+      {items.length === 0 ? (
+        <p className="px-1 py-6 text-center font-hand text-xl text-ink-faint">
+          Günü belirsiz görev yok.
+        </p>
+      ) : (
+        <>
+          <p className="px-1 pb-2 text-xs text-ink-faint">
+            Günü ve zamanı henüz belirlenmemiş görevler. Hazır olduğunda ata.
+          </p>
+          <ul className="flex flex-col">
+            {items.map((o) => (
+              <AssignRow key={o.id} id={o.id} title={o.title} onDone={onSelectDate} />
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
   );
 }
