@@ -124,6 +124,17 @@ body {
   transform: rotate(1.3deg);
 }
 
+/* Hides the scrollbar on the horizontal number picker — its own snap-center
+   buttons already show position, a scrollbar underneath just adds chrome. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .sketch-rotate {
   transform: rotate(-0.35deg);
 }

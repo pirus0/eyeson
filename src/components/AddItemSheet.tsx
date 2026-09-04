@@ -6,6 +6,7 @@ import type { Importance } from "@/lib/types";
 import { INPUT_CLASS, type ItemKind } from "@/lib/itemMeta";
 import { useStore } from "@/lib/store";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
+import { HorizontalNumberPicker } from "./HorizontalNumberPicker";
 import { ImportanceSelector } from "./ImportanceSelector";
 import { KindSelector } from "./KindSelector";
 import { Sheet } from "./Sheet";
@@ -46,6 +47,9 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
   const [dayOfMonth, setDayOfMonth] = useState(getDate(defaultDate));
   const [importance, setImportance] = useState<Importance>("orta");
   const [startDate, setStartDate] = useState(unscheduled ? "" : toKey(defaultDate));
+  // Only meaningful for kind === "oneOff" — every other kind always has a
+  // date. Starts off when opened from the "Zamanı belirsiz" panel's + button.
+  const [hasDate, setHasDate] = useState(!unscheduled);
   const [count, setCount] = useState(3);
   const [statementDay, setStatementDay] = useState(getDate(defaultDate));
   // Just a starting suggestion (typical ~10 day gap) — the user adjusts to
@@ -87,7 +91,7 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
     } else if (kind === "weeklyTodo") {
       addWeeklyTodo({ title: name.trim(), startDate });
     } else {
-      addOneOff({ title: name.trim(), date: startDate || undefined });
+      addOneOff({ title: name.trim(), date: hasDate ? startDate || undefined : undefined });
     }
     onClose();
   }
@@ -140,49 +144,27 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
           )}
 
           {kind === "bill" && (
-            <label className="flex flex-col gap-1 text-sm text-ink-soft">
+            <div className="flex flex-col gap-1 text-sm text-ink-soft">
               Ayın kaçında
-              <input
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={31}
-                value={dayOfMonth}
-                onChange={(e) => setDayOfMonth(Number(e.target.value))}
-                required
-                className={INPUT_CLASS}
-              />
-            </label>
+              <HorizontalNumberPicker min={1} max={31} value={dayOfMonth} onChange={setDayOfMonth} />
+            </div>
           )}
 
           {kind === "creditCard" && (
             <>
-              <label className="flex flex-col gap-1 text-sm text-ink-soft">
+              <div className="flex flex-col gap-1 text-sm text-ink-soft">
                 Hesap kesim günü
-                <input
-                  type="number"
-                  inputMode="numeric"
+                <HorizontalNumberPicker
                   min={1}
                   max={31}
                   value={statementDay}
-                  onChange={(e) => setStatementDay(Number(e.target.value))}
-                  required
-                  className={INPUT_CLASS}
+                  onChange={setStatementDay}
                 />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-ink-soft">
+              </div>
+              <div className="flex flex-col gap-1 text-sm text-ink-soft">
                 Son ödeme günü
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={31}
-                  value={dueDay}
-                  onChange={(e) => setDueDay(Number(e.target.value))}
-                  required
-                  className={INPUT_CLASS}
-                />
-              </label>
+                <HorizontalNumberPicker min={1} max={31} value={dueDay} onChange={setDueDay} />
+              </div>
               <p className="text-xs text-ink-faint">
                 Takvimde iki gün de görünür; alev ve hatırlatıcı sadece son ödeme gününde olur.
               </p>
@@ -201,39 +183,70 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
                   className={INPUT_CLASS}
                 />
               </label>
-              <label className="flex flex-col gap-1 text-sm text-ink-soft">
+              <div className="flex flex-col gap-1 text-sm text-ink-soft">
                 Taksit sayısı
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={60}
-                  value={count}
-                  onChange={(e) => setCount(Number(e.target.value))}
-                  required
-                  className={INPUT_CLASS}
-                />
-              </label>
+                <HorizontalNumberPicker min={1} max={60} value={count} onChange={setCount} />
+              </div>
             </>
           )}
 
-          {(kind === "recurringTodo" || kind === "weeklyTodo" || kind === "oneOff") && (
+          {(kind === "recurringTodo" || kind === "weeklyTodo") && (
             <label className="flex flex-col gap-1 text-sm text-ink-soft">
-              {kind === "oneOff" ? "Tarih (opsiyonel)" : "Başlangıç tarihi"}
+              Başlangıç tarihi
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                required={kind !== "oneOff"}
+                required
                 className={INPUT_CLASS}
               />
-              {kind === "oneOff" && (
+            </label>
+          )}
+
+          {kind === "oneOff" && (
+            <div className="flex flex-col gap-2 text-sm text-ink-soft">
+              <div className="flex items-center justify-between">
+                Tarih
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={hasDate}
+                  aria-label="Tarih belirle"
+                  onClick={() =>
+                    setHasDate((prev) => {
+                      const next = !prev;
+                      if (next && !startDate) setStartDate(toKey(defaultDate));
+                      if (!next) setStartDate("");
+                      return next;
+                    })
+                  }
+                  className={[
+                    "sketch-box relative h-7 w-12 shrink-0",
+                    hasDate ? "bg-ink" : "bg-transparent",
+                  ].join(" ")}
+                >
+                  <span
+                    className={[
+                      "absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full transition-[left]",
+                      hasDate ? "left-6 bg-paper" : "left-1 bg-ink-soft",
+                    ].join(" ")}
+                  />
+                </button>
+              </div>
+              {hasDate ? (
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  required
+                  className={INPUT_CLASS}
+                />
+              ) : (
                 <span className="text-xs text-ink-faint">
-                  Boş bırakırsan &quot;zamanı belirsiz&quot; olarak eklenir, soru işaretinden
-                  sonra atarsın.
+                  &quot;Zamanı belirsiz&quot; olarak eklenir, soru işaretinden sonra atarsın.
                 </span>
               )}
-            </label>
+            </div>
           )}
 
           {isPayment && (
