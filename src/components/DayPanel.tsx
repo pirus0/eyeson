@@ -2,6 +2,7 @@
 
 import type { Occurrence } from "@/lib/occurrences";
 import { creditCardCompanionDate, occurrenceAmount, occurrenceImportance } from "@/lib/occurrences";
+import type { CompletionMap } from "@/lib/types";
 import { formatDayTitle, formatShort } from "@/lib/date";
 import { formatAmount, itemTitle, IMPORTANCE_DOT_CLASS } from "@/lib/itemMeta";
 import { CheckIcon, PlusIcon, TrashIcon } from "./Icons";
@@ -13,19 +14,37 @@ type Props = {
   onAdd: () => void;
 };
 
-const KIND_ORDER = {
-  bill: 0,
-  installment: 1,
-  creditCard: 2,
-  recurringTodo: 3,
-  weeklyTodo: 4,
-  oneOff: 5,
-} as const;
+const IMPORTANCE_RANK: Record<string, number> = {
+  yuksek: 0,
+  orta: 1,
+  dusuk: 2,
+};
 
-/** A very-important payment that's been handled sinks to the bottom of the
- * day's list instead of staying up top where the flame drew attention to it. */
-function isSettledUrgent(occ: Occurrence): boolean {
-  return occurrenceImportance(occ) === "yuksek" && occ.done;
+function importanceRank(occ: Occurrence): number {
+  const importance = occurrenceImportance(occ);
+  return importance ? IMPORTANCE_RANK[importance] : 2;
+}
+
+/** Moment the item should be considered "ticked" for ordering purposes: when
+ * it was checked off if done, else when it was created — so ties don't
+ * reshuffle on every toggle. */
+function tickOrder(occ: Occurrence, completions: CompletionMap): string {
+  if (occ.done) return completions[occ.key]?.doneAt ?? occ.item.createdAt;
+  return occ.item.createdAt;
+}
+
+/** Three-level sort: not-done before done (a done item never stays up top
+ * just because it's high-importance — it always sinks below every pending
+ * item); within each of those groups, importance order (yüksek > orta >
+ * düşük/none); within a matching importance tier, tick order. */
+function sortOccurrences(occs: Occurrence[], completions: CompletionMap): Occurrence[] {
+  return [...occs].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    const ra = importanceRank(a);
+    const rb = importanceRank(b);
+    if (ra !== rb) return ra - rb;
+    return tickOrder(a, completions).localeCompare(tickOrder(b, completions));
+  });
 }
 
 type RowProps = {
@@ -106,17 +125,12 @@ function OccurrenceRow({ occ, overdue = false, onToggleDone, onRemove }: RowProp
 }
 
 export function DayPanel({ day, occurrences, onAdd }: Props) {
-  const { setDone, removeItem } = useStore();
+  const { setDone, removeItem, data } = useStore();
 
   const overdue = occurrences.filter((occ) => occ.carriedOverdue);
   const own = occurrences.filter((occ) => !occ.carriedOverdue);
 
-  const sorted = [...own].sort((a, b) => {
-    const aSettled = isSettledUrgent(a);
-    const bSettled = isSettledUrgent(b);
-    if (aSettled !== bSettled) return aSettled ? 1 : -1;
-    return KIND_ORDER[a.item.kind] - KIND_ORDER[b.item.kind];
-  });
+  const sorted = sortOccurrences(own, data.completions);
 
   return (
     <div className="mt-2 border-t border-dashed border-ink-faint/60 pt-3">
