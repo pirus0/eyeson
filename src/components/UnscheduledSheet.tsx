@@ -33,7 +33,7 @@ function AssignRow({
   return (
     <li className="border-b border-dashed border-ink-faint/40 py-3 px-1 last:border-b-0">
       <div className="flex items-center gap-3">
-        <p className="min-w-0 flex-1 truncate text-[15px] font-medium text-ink">{title}</p>
+        <p className="min-w-0 flex-1 text-[15px] font-medium text-ink">{title}</p>
         {!assigning && (
           <>
             <button

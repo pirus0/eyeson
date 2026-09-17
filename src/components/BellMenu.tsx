@@ -111,7 +111,7 @@ function ReminderRow({
       >
         <span className={`h-2 w-2 shrink-0 rounded-full ${IMPORTANCE_DOT_CLASS[importance]}`} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[15px] font-medium text-ink">{itemTitle(reminder.item)}</p>
+          <p className="text-[15px] font-medium text-ink">{itemTitle(reminder.item)}</p>
           <p className="text-xs text-ink-faint">
             {formatShort(reminder.date)}
             {amount !== undefined ? ` · ${formatAmount(amount)}` : ""}

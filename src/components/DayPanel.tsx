@@ -94,7 +94,7 @@ function OccurrenceRow({ occ, overdue = false, onToggleDone, onRemove }: RowProp
           )}
           <p
             className={[
-              "truncate text-[15px] font-medium",
+              "text-[15px] font-medium",
               occ.done ? "text-ink-faint line-through" : overdue ? "text-red-pen" : "text-ink",
             ].join(" ")}
           >
