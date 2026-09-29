@@ -34,6 +34,14 @@ export function clampToMonth(year: number, monthIndex: number, day: number): Dat
   return new Date(year, monthIndex, Math.min(day, last));
 }
 
+/** Two-letter weekday labels, Monday first (matches the calendar grid). */
+export const WEEKDAY_SHORT = ["Pt", "Sa", "Ça", "Pe", "Cu", "Ct", "Pz"];
+
+/** 0 = Monday … 6 = Sunday. */
+export function mondayIndex(date: Date): number {
+  return (date.getDay() + 6) % 7;
+}
+
 /** Monday of the week containing `date` (weeks run Mon-Sun, matching the calendar grid). */
 export function weekStart(date: Date): Date {
   return startOfWeek(date, { weekStartsOn: 1 });

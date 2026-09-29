@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { addMonths, isSameDay, formatMonthTitle, toKey } from "@/lib/date";
+import { addMonths, isSameDay, formatMonthTitle, toKey, WEEKDAY_SHORT } from "@/lib/date";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -13,7 +13,6 @@ import {
 import { IconButton } from "./IconButton";
 import { occurrenceImportance, type Occurrence } from "@/lib/occurrences";
 
-const WEEKDAYS = ["Pt", "Sa", "Ça", "Pe", "Cu", "Ct", "Pz"];
 
 /** Stable reference for "no occurrences that day" so DayCell's memo doesn't
  * see a "changed" prop on every render just because `?? []` made a new
@@ -334,7 +333,7 @@ export const CalendarGrid = memo(function CalendarGrid({
       </div>
 
       <div className="grid grid-cols-7 gap-y-1 text-center font-hand text-lg text-ink-faint">
-        {WEEKDAYS.map((w) => (
+        {WEEKDAY_SHORT.map((w) => (
           <div key={w} className="py-1">
             {w}
           </div>

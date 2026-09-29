@@ -57,7 +57,7 @@ type StoreContextValue = {
     importance: Importance;
   }) => void;
   addRecurringTodo: (input: { title: string; startDate: string }) => void;
-  addWeeklyTodo: (input: { title: string; startDate: string }) => void;
+  addWeeklyTodo: (input: { title: string; startDate: string; weekday: number }) => void;
   addOneOff: (input: { title: string; date?: string; importance?: Importance }) => void;
   /** Gives an unscheduled one-off (created with no date) a day and, optionally,
    * an importance — after this it behaves exactly like one created with a date
@@ -289,6 +289,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       kind: "weeklyTodo",
       title: input.title,
       startDate: input.startDate,
+      weekday: input.weekday,
       createdAt: new Date().toISOString(),
       active: true,
     };

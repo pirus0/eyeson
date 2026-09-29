@@ -36,6 +36,10 @@ export type WeeklyTodo = {
   kind: "weeklyTodo";
   title: string;
   startDate: string; // YYYY-MM-DD, repeats every week (Mon-Sun) from here on
+  /** 0 = Pzt … 6 = Pz — the one day of the week it lands on. Undefined only
+   * on records made before the day picker existed: those keep showing on
+   * every day of the week, done once for the whole week. */
+  weekday?: number;
   createdAt: string;
   active: boolean;
 };

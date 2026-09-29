@@ -2,10 +2,12 @@
 
 import type { Occurrence } from "@/lib/occurrences";
 import { creditCardCompanionDate, occurrenceAmount, occurrenceImportance } from "@/lib/occurrences";
-import type { CompletionMap } from "@/lib/types";
-import { formatDayTitle, formatShort } from "@/lib/date";
-import { formatAmount, itemTitle, IMPORTANCE_DOT_CLASS } from "@/lib/itemMeta";
-import { CheckIcon, PlusIcon, TrashIcon } from "./Icons";
+import { useState } from "react";
+import type { CompletionMap, Importance } from "@/lib/types";
+import { formatDayTitle, formatShort, todayKey } from "@/lib/date";
+import { formatAmount, itemTitle, IMPORTANCE_DOT_CLASS, INPUT_CLASS } from "@/lib/itemMeta";
+import { CheckIcon, PlusIcon, ReassignIcon, TrashIcon } from "./Icons";
+import { ImportanceSelector } from "./ImportanceSelector";
 import { useStore } from "@/lib/store";
 
 type Props = {
@@ -54,8 +56,67 @@ type RowProps = {
   onRemove: (kind: Occurrence["item"]["kind"], id: string) => void;
 };
 
+/** Inline "move to another day" form under an overdue one-off task —
+ * payments can't be reassigned (their due date is fixed), recurring todos
+ * come back on their own. */
+function ReassignForm({
+  id,
+  initialImportance,
+  onClose,
+}: {
+  id: string;
+  initialImportance?: Importance;
+  onClose: () => void;
+}) {
+  const { assignOneOff } = useStore();
+  const [date, setDate] = useState(todayKey());
+  const [importance, setImportance] = useState<Importance>(initialImportance ?? "orta");
+
+  return (
+    <div className="flex flex-col gap-3 px-1 pb-3">
+      <label className="flex flex-col gap-1 text-sm text-ink-soft">
+        Yeni tarih
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          required
+          className={INPUT_CLASS}
+        />
+      </label>
+      <div className="flex flex-col gap-1 text-sm text-ink-soft">
+        Önem
+        <ImportanceSelector value={importance} onChange={setImportance} />
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            if (!date) return;
+            assignOneOff(id, { date, importance });
+            onClose();
+          }}
+          disabled={!date}
+          className="sketch-box min-h-11 flex-1 bg-ink font-hand text-lg text-paper disabled:opacity-50 active:bg-pencil"
+        >
+          Kaydet
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="sketch-box min-h-11 px-4 text-sm text-ink-soft"
+        >
+          Vazgeç
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function OccurrenceRow({ occ, overdue = false, onToggleDone, onRemove }: RowProps) {
+  const [reassigning, setReassigning] = useState(false);
   const { item } = occ;
+  const canReassign = overdue && item.kind === "oneOff";
   const isCreditCard = item.kind === "creditCard";
   const isStatementRow = isCreditCard && occ.role === "statement";
   const amount = occurrenceAmount(occ);
@@ -67,59 +128,80 @@ function OccurrenceRow({ occ, overdue = false, onToggleDone, onRemove }: RowProp
     : null;
 
   return (
-    <li className="flex items-center gap-3 border-b border-dashed border-ink-faint/40 py-3 px-1 last:border-b-0">
-      {isStatementRow ? (
-        <span className="h-11 w-11 shrink-0" aria-hidden />
-      ) : (
-        <button
-          type="button"
-          onClick={() => onToggleDone(occ.key, !occ.done)}
-          aria-label={occ.done ? "Tamamlanmadı olarak işaretle" : "Tamamlandı olarak işaretle"}
-          className={[
-            "sketch-box flex h-11 w-11 shrink-0 items-center justify-center",
-            occ.done ? "bg-ink/90 text-paper" : "text-transparent",
-          ].join(" ")}
-        >
-          <CheckIcon className="h-4 w-4" />
-        </button>
-      )}
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          {importance && (
-            <span
-              className={`h-2 w-2 shrink-0 rounded-full ${IMPORTANCE_DOT_CLASS[importance]}`}
-              title="Önem"
-            />
-          )}
-          <p
+    <li className="border-b border-dashed border-ink-faint/40 last:border-b-0">
+      <div className="flex items-center gap-3 py-3 px-1">
+        {isStatementRow ? (
+          <span className="h-11 w-11 shrink-0" aria-hidden />
+        ) : (
+          <button
+            type="button"
+            onClick={() => onToggleDone(occ.key, !occ.done)}
+            aria-label={occ.done ? "Tamamlanmadı olarak işaretle" : "Tamamlandı olarak işaretle"}
             className={[
-              "text-[15px] font-medium",
-              occ.done ? "text-ink-faint line-through" : overdue ? "text-red-pen" : "text-ink",
+              "sketch-box flex h-11 w-11 shrink-0 items-center justify-center",
+              occ.done ? "bg-ink/90 text-paper" : "text-transparent",
             ].join(" ")}
           >
-            {itemTitle(item)}
-            {isStatementRow && " · kesim"}
+            <CheckIcon className="h-4 w-4" />
+          </button>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            {importance && (
+              <span
+                className={`h-2 w-2 shrink-0 rounded-full ${IMPORTANCE_DOT_CLASS[importance]}`}
+                title="Önem"
+              />
+            )}
+            <p
+              className={[
+                "text-[15px] font-medium",
+                occ.done ? "text-ink-faint line-through" : overdue ? "text-red-pen" : "text-ink",
+              ].join(" ")}
+            >
+              {itemTitle(item)}
+              {isStatementRow && " · kesim"}
+            </p>
+          </div>
+          <p className={["text-xs", overdue ? "text-red-pen/80" : "text-ink-faint"].join(" ")}>
+            {overdue ? formatShort(occ.date) : null}
+            {amount !== undefined ? `${overdue ? " · " : ""}${formatAmount(amount)}` : null}
+            {occ.installmentProgress
+              ? `${amount !== undefined || overdue ? " · " : ""}${occ.installmentProgress.index}/${occ.installmentProgress.total}. taksit`
+              : null}
+            {companionLabel ? `${amount !== undefined ? " · " : ""}${companionLabel}` : null}
           </p>
         </div>
-        <p className={["text-xs", overdue ? "text-red-pen/80" : "text-ink-faint"].join(" ")}>
-          {overdue ? formatShort(occ.date) : null}
-          {amount !== undefined ? `${overdue ? " · " : ""}${formatAmount(amount)}` : null}
-          {occ.installmentProgress
-            ? `${amount !== undefined || overdue ? " · " : ""}${occ.installmentProgress.index}/${occ.installmentProgress.total}. taksit`
-            : null}
-          {companionLabel ? `${amount !== undefined ? " · " : ""}${companionLabel}` : null}
-        </p>
-      </div>
 
-      <button
-        type="button"
-        onClick={() => onRemove(item.kind, item.id)}
-        aria-label="Sil"
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-faint active:bg-graphite-wash active:text-ink-soft"
-      >
-        <TrashIcon className="h-4 w-4" />
-      </button>
+        {canReassign && (
+          <button
+            type="button"
+            onClick={() => setReassigning((v) => !v)}
+            aria-label="Yeniden ata"
+            aria-expanded={reassigning}
+            className="-mr-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-red-pen/80 active:bg-graphite-wash"
+          >
+            <ReassignIcon className="h-4 w-4" />
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={() => onRemove(item.kind, item.id)}
+          aria-label="Sil"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-faint active:bg-graphite-wash active:text-ink-soft"
+        >
+          <TrashIcon className="h-4 w-4" />
+        </button>
+      </div>
+      {reassigning && item.kind === "oneOff" && (
+        <ReassignForm
+          id={item.id}
+          initialImportance={item.importance}
+          onClose={() => setReassigning(false)}
+        />
+      )}
     </li>
   );
 }

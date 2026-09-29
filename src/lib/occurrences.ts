@@ -4,6 +4,7 @@ import {
   fromKey,
   getDate,
   isSameDay,
+  mondayIndex,
   toKey,
   weekStart,
 } from "./date";
@@ -57,7 +58,11 @@ function isPaymentDay(item: AnyItem, date: Date): boolean {
   if (item.kind === "recurringTodo" || item.kind === "weeklyTodo") {
     if (!item.active) return false;
     const start = fromKey(item.startDate);
-    return date >= startOfDay(start);
+    if (date < startOfDay(start)) return false;
+    if (item.kind === "weeklyTodo" && item.weekday !== undefined) {
+      return mondayIndex(date) === item.weekday;
+    }
+    return true;
   }
 
   if (item.kind === "oneOff") {
@@ -306,9 +311,16 @@ export function computeOverdue(
     if (occ.item.kind === "recurringTodo") continue;
     // The statement date is informational only, never overdue.
     if (occ.item.kind === "creditCard" && occ.role !== "due") continue;
-    // A weekly todo is only overdue once its whole week (Mon-Sun) has
-    // passed — days already gone by within the current week don't count.
-    if (occ.item.kind === "weeklyTodo" && weekStart(occ.date) >= currentWeekStart) continue;
+    // A weekly todo pinned to a day is overdue once that day passes, like
+    // any dated task. An old any-day-of-the-week one only once its whole
+    // week (Mon-Sun) has passed — days gone by within the current week
+    // don't count.
+    if (
+      occ.item.kind === "weeklyTodo" &&
+      occ.item.weekday === undefined &&
+      weekStart(occ.date) >= currentWeekStart
+    )
+      continue;
     // Weekly todos share one key across the whole week (several days in the
     // range map to the same key) — keep only the first (earliest) hit.
     if (seen.has(occ.key)) continue;

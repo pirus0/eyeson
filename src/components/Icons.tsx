@@ -85,6 +85,16 @@ export function ChevronUpIcon({ className }: IconProps) {
   );
 }
 
+/** Two chasing arrows — "yeniden ata" on an overdue one-off task. */
+export function ReassignIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M20 11a8 8 0 0 0-14.5-4.5M4 13a8 8 0 0 0 14.5 4.5" />
+      <path d="M5 3v4h4M19 21v-4h-4" />
+    </svg>
+  );
+}
+
 export function TrashIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" className={className} {...base}>

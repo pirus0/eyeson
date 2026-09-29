@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getDate, toKey } from "@/lib/date";
+import { getDate, mondayIndex, toKey } from "@/lib/date";
 import type { Importance } from "@/lib/types";
 import { INPUT_CLASS, type ItemKind } from "@/lib/itemMeta";
 import { useStore } from "@/lib/store";
@@ -10,6 +10,7 @@ import { HorizontalNumberPicker } from "./HorizontalNumberPicker";
 import { ImportanceSelector } from "./ImportanceSelector";
 import { KindSelector } from "./KindSelector";
 import { Sheet } from "./Sheet";
+import { WeekdaySelector } from "./WeekdaySelector";
 
 type Props = {
   defaultDate: Date;
@@ -51,6 +52,7 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
   // date. Starts off when opened from the "Zamanı belirsiz" panel's + button.
   const [hasDate, setHasDate] = useState(!unscheduled);
   const [count, setCount] = useState(3);
+  const [weekday, setWeekday] = useState(mondayIndex(defaultDate));
   const [statementDay, setStatementDay] = useState(getDate(defaultDate));
   // Just a starting suggestion (typical ~10 day gap) — the user adjusts to
   // match their actual card.
@@ -89,7 +91,7 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
     } else if (kind === "recurringTodo") {
       addRecurringTodo({ title: name.trim(), startDate });
     } else if (kind === "weeklyTodo") {
-      addWeeklyTodo({ title: name.trim(), startDate });
+      addWeeklyTodo({ title: name.trim(), startDate, weekday: clampInt(weekday, 0, 6) });
     } else {
       addOneOff({ title: name.trim(), date: hasDate ? startDate || undefined : undefined });
     }
@@ -201,6 +203,13 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
                 className={INPUT_CLASS}
               />
             </label>
+          )}
+
+          {kind === "weeklyTodo" && (
+            <div className="flex flex-col gap-1 text-sm text-ink-soft">
+              Hangi gün
+              <WeekdaySelector value={weekday} onChange={setWeekday} />
+            </div>
           )}
 
           {kind === "oneOff" && (
