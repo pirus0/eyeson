@@ -10,6 +10,7 @@ import { CalendarGrid } from "./CalendarGrid";
 import { DayPanel } from "./DayPanel";
 import { AddItemSheet } from "./AddItemSheet";
 import { BellMenu } from "./BellMenu";
+import { SettingsSheet } from "./SettingsSheet";
 import { UnscheduledButton, UnscheduledPanel } from "./UnscheduledSheet";
 
 /** A tap-tap within this window counts as a double-tap — more reliable than
@@ -128,6 +129,10 @@ export function CalendarApp() {
             onClick={() =>
               setActiveSheet((s) => (s === "unscheduled" ? null : "unscheduled"))
             }
+          />
+          <SettingsSheet
+            open={activeSheet === "settings"}
+            onOpenChange={(v) => setActiveSheet(v ? "settings" : null)}
           />
           <BellMenu
             today={today}
