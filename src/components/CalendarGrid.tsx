@@ -9,6 +9,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   EyeMediumIcon,
+  EyeOutlineIcon,
   EyeUrgentDoneIcon,
   EyeUrgentIcon,
 } from "./Icons";
@@ -84,25 +85,28 @@ const DayCell = memo(function DayCell({
   // the eye's FILL, not the page: on-iris on the red eye, paper on the ink
   // eye (paper is ink's inverse in both themes).
   const hasEye = urgentPending || mediumPending;
-  const pillFilled = isSelected && !hasEye;
   const numberColor = urgentPending
     ? "text-on-iris"
     : mediumPending
       ? "text-paper"
-      : pillFilled
-        ? "text-paper"
-        : isRed || isToday
-          ? "text-iris"
-          : !inMonth
-            ? "text-ink-faint/45"
-            : "text-ink";
+      : isRed || isToday
+        ? "text-iris"
+        : !inMonth
+          ? "text-ink-faint/45"
+          : "text-ink";
 
-  // Selection: a filled pill on a plain day, a ring around the eye on an
-  // eye day so the eye stays visible. Same layoutId either way, so the
-  // selection still slides between cells.
-  const pillClass = hasEye
-    ? `absolute -inset-[3px] rounded-full ring-2 ring-inset ${urgentPending ? "ring-iris" : "ring-ink"}`
-    : `absolute inset-0 rounded-full ${isRed ? "bg-iris" : "bg-ink"}`;
+  // Selection is an eye outline, the same almond as the importance eyes.
+  // On an eye day it sits exactly on that eye's edge with a thin gap, like
+  // a lens ring; on a plain day it is where an eye would be. Same layoutId
+  // either way, so the selection still slides between cells.
+  const frameClass = `pointer-events-none absolute inset-0 ${isRed ? "text-iris" : "text-ink"}`;
+  const frame = (
+    <EyeOutlineIcon
+      className="h-full w-full scale-[1.2]"
+      variant={urgentPending ? "urgent" : "plain"}
+      gap={hasEye}
+    />
+  );
 
   return (
     <div
@@ -127,11 +131,13 @@ const DayCell = memo(function DayCell({
           (sharedPill ? (
             <motion.span
               layoutId="selected-day"
-              className={pillClass}
+              className={frameClass}
               transition={{ type: "spring", stiffness: 520, damping: 36 }}
-            />
+            >
+              {frame}
+            </motion.span>
           ) : (
-            <span className={pillClass} />
+            <span className={frameClass}>{frame}</span>
           ))}
         {!isSelected && isToday && !hasEye && (
           <span className="absolute inset-0 rounded-full ring-[1.5px] ring-iris/70 ring-inset" />
