@@ -79,15 +79,30 @@ const DayCell = memo(function DayCell({
   const hasOverdueCarry = occ.some((o) => o.carriedOverdue);
   const isRed = urgentPending || hasOverdueCarry;
 
-  const numberColor = isSelected
-    ? "text-paper"
-    : isRed
-      ? "text-iris"
-      : isToday
-        ? "text-iris"
-        : !inMonth
-          ? "text-ink-faint/45"
-          : "text-ink";
+  // A pending eye covers the whole day, number drawn inside it (as in the
+  // original design). The number then needs a colour that contrasts with
+  // the eye's FILL, not the page: on-iris on the red eye, paper on the ink
+  // eye (paper is ink's inverse in both themes).
+  const hasEye = urgentPending || mediumPending;
+  const pillFilled = isSelected && !hasEye;
+  const numberColor = urgentPending
+    ? "text-on-iris"
+    : mediumPending
+      ? "text-paper"
+      : pillFilled
+        ? "text-paper"
+        : isRed || isToday
+          ? "text-iris"
+          : !inMonth
+            ? "text-ink-faint/45"
+            : "text-ink";
+
+  // Selection: a filled pill on a plain day, a ring around the eye on an
+  // eye day so the eye stays visible. Same layoutId either way, so the
+  // selection still slides between cells.
+  const pillClass = hasEye
+    ? `absolute -inset-[3px] rounded-full ring-2 ring-inset ${urgentPending ? "ring-iris" : "ring-ink"}`
+    : `absolute inset-0 rounded-full ${isRed ? "bg-iris" : "bg-ink"}`;
 
   return (
     <div
@@ -96,44 +111,38 @@ const DayCell = memo(function DayCell({
       aria-label={format(day, "d MMMM EEEE", { locale: tr })}
       aria-pressed={isSelected}
       tabIndex={0}
-      className="flex h-[54px] flex-col items-center justify-start"
+      className="flex h-[52px] items-center justify-center"
     >
-      <span className="relative flex h-10 w-10 items-center justify-center">
+      <span className="relative flex h-11 w-11 items-center justify-center">
+        {hasUrgent &&
+          (urgentPending ? (
+            <EyeUrgentIcon className="pointer-events-none absolute inset-0 h-full w-full scale-[1.2] text-iris" />
+          ) : (
+            <EyeUrgentDoneIcon className="pointer-events-none absolute inset-x-0 bottom-1.5 mx-auto h-3 w-full scale-110 text-ink-faint/50" />
+          ))}
+        {mediumPending && (
+          <EyeMediumIcon className="pointer-events-none absolute inset-0 h-full w-full scale-[1.2] text-ink" />
+        )}
         {isSelected &&
           (sharedPill ? (
             <motion.span
               layoutId="selected-day"
-              className={`absolute inset-0 rounded-full ${isRed ? "bg-iris" : "bg-ink"}`}
+              className={pillClass}
               transition={{ type: "spring", stiffness: 520, damping: 36 }}
             />
           ) : (
-            <span className={`absolute inset-0 rounded-full ${isRed ? "bg-iris" : "bg-ink"}`} />
+            <span className={pillClass} />
           ))}
-        {!isSelected && isToday && (
+        {!isSelected && isToday && !hasEye && (
           <span className="absolute inset-0 rounded-full ring-[1.5px] ring-iris/70 ring-inset" />
         )}
         <span
           className={`tabular relative text-[15px] transition-colors duration-200 ${numberColor} ${
-            isSelected || isToday ? "font-semibold" : "font-medium"
+            isSelected || isToday || hasEye ? "font-semibold" : "font-medium"
           }`}
         >
           {day.getDate()}
         </span>
-      </span>
-      <span className="relative flex h-3 w-full items-center justify-center">
-        {hasUrgent &&
-          (urgentPending ? (
-            <EyeUrgentIcon className="eye-breathe h-3.5 w-4 text-iris" />
-          ) : (
-            <EyeUrgentDoneIcon className="h-1.5 w-3.5 text-ink-faint/60" />
-          ))}
-        {mediumPending && (
-          // Same eye as the app icon: ink almond, iris pupil.
-          <span className="relative flex h-2.5 w-4 items-center justify-center">
-            <EyeMediumIcon className="absolute inset-0 h-full w-full text-ink" />
-            <span className="relative h-[5px] w-[5px] rounded-full bg-iris" />
-          </span>
-        )}
       </span>
     </div>
   );
@@ -339,8 +348,8 @@ export const CalendarGrid = memo(function CalendarGrid({
   const [monthName, year] = formatMonthTitle(monthAnchor).split(" ");
 
   return (
-    <section className="rounded-[28px] bg-surface px-3 pt-4 pb-2 shadow-[0_1px_0_var(--line),0_12px_32px_-20px_rgba(0,0,0,0.25)]">
-      <div className="flex items-center justify-between px-2 pb-3">
+    <section className="rounded-[28px] bg-surface px-2 pt-4 pb-2 shadow-[0_1px_0_var(--line),0_12px_32px_-20px_rgba(0,0,0,0.25)]">
+      <div className="flex items-center justify-between px-3 pb-3">
         <div className="relative h-9 min-w-0 flex-1 overflow-hidden">
           <AnimatePresence initial={false} custom={direction} mode="popLayout">
             <motion.h2
@@ -389,7 +398,7 @@ export const CalendarGrid = memo(function CalendarGrid({
         </div>
       </div>
 
-      <div className="grid grid-cols-7 pb-1 text-center text-[11px] font-semibold tracking-[0.08em] text-ink-faint uppercase">
+      <div className="grid grid-cols-7 px-1 pb-1 text-center text-[11px] font-semibold tracking-[0.08em] text-ink-faint uppercase">
         {WEEKDAY_SHORT.map((w, i) => (
           <div key={w} className={i >= 5 ? "text-ink-faint/70" : undefined}>
             {w}
@@ -398,7 +407,7 @@ export const CalendarGrid = memo(function CalendarGrid({
       </div>
 
       <div
-        className="relative overflow-hidden select-none"
+        className="relative overflow-hidden px-1 select-none"
         style={{ touchAction: "none", WebkitUserSelect: "none" }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
