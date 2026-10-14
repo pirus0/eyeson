@@ -65,7 +65,7 @@ export function HorizontalNumberPicker({ min, max, value, onChange }: Props) {
     <div
       ref={trackRef}
       onScroll={handleScroll}
-      className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto"
+      className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto rounded-2xl bg-ink/5 py-1.5 [mask-image:linear-gradient(to_right,transparent,black_18%,black_82%,transparent)]"
     >
       <div className="shrink-0" style={{ width: SPACER }} aria-hidden />
       <div className="flex shrink-0 gap-2">
@@ -75,8 +75,8 @@ export function HorizontalNumberPicker({ min, max, value, onChange }: Props) {
             type="button"
             onClick={() => handleClick(n)}
             className={[
-              "sketch-box flex h-11 w-11 shrink-0 snap-center items-center justify-center text-sm font-medium",
-              n === value ? "bg-ink text-paper" : "text-ink-soft",
+              "tabular flex h-11 w-11 shrink-0 snap-center items-center justify-center rounded-full font-mono text-[15px] transition-[background-color,color,transform] duration-200",
+              n === value ? "scale-110 bg-ink font-semibold text-paper" : "text-ink-soft hover:bg-ink/5",
             ].join(" ")}
           >
             {n}

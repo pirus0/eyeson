@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { CloudSyncIcon } from "./Icons";
+import { INPUT_CLASS } from "@/lib/itemMeta";
 import { IconButton } from "./IconButton";
 import { Sheet } from "./Sheet";
 
@@ -37,15 +38,15 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
 
   return (
     <>
-      <IconButton onClick={() => onOpenChange(true)} ariaLabel="Yedekleme ayarları" className="relative text-ink">
-        <CloudSyncIcon className="h-5 w-5" />
+      <IconButton onClick={() => onOpenChange(true)} ariaLabel="Yedekleme ayarları" className="text-ink">
+        <CloudSyncIcon className="h-[22px] w-[22px]" />
         {syncEnabled && syncState === "error" && (
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-pen" />
+          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-iris" />
         )}
       </IconButton>
 
-      <Sheet open={open} onClose={() => onOpenChange(false)} title="Yedekleme" variant="box-alt">
-            <p className="pb-3 text-sm text-ink-soft">
+      <Sheet open={open} onClose={() => onOpenChange(false)} title="Yedekleme">
+            <p className="pb-4 text-[14px] leading-relaxed text-ink-soft">
               Verilerin bu cihazda saklanır. İstersen private bir GitHub Gist&apos;e de
               yedeklenmesini sağlayabilirsin — uygulamayı silip yeniden kurarsan sadece
               buraya token&apos;ı tekrar yapıştırman yeterli olur, veriler geri gelir.
@@ -53,7 +54,12 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
 
             {syncEnabled ? (
               <div className="flex flex-col items-start gap-2">
-                <p className="text-sm text-ink">
+                <p className="flex items-center gap-2 text-[14px] text-ink">
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      syncState === "error" ? "bg-iris" : syncState === "syncing" ? "animate-pulse bg-amber" : "bg-[#3f9a5c]"
+                    }`}
+                  />
                   {syncState === "syncing"
                     ? "Senkronize ediliyor…"
                     : syncState === "error"
@@ -65,14 +71,14 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
                 <button
                   type="button"
                   onClick={disableSync}
-                  className="sketch-box px-3 py-1.5 text-sm text-ink-soft"
+                  className="press mt-1 min-h-11 rounded-full bg-ink/5 px-4 text-[14px] font-medium text-ink-soft"
                 >
                   Yedeklemeyi kapat
                 </button>
               </div>
             ) : (
-              <div className="flex flex-col items-start gap-2">
-                <p className="text-xs text-ink-faint">
+              <div className="flex flex-col gap-3">
+                <p className="text-[12px] text-ink-faint">
                   github.com/settings/tokens adresinden &quot;gist&quot; izinli klasik bir
                   Personal Access Token oluştur ve aşağıya yapıştır.
                 </p>
@@ -83,14 +89,14 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
                   placeholder="ghp_..."
                   autoComplete="off"
                   spellCheck={false}
-                  className="sketch-box w-full bg-paper px-3 py-2 text-sm text-ink outline-none"
+                  className={INPUT_CLASS}
                 />
-                {formError && <p className="text-xs text-red-pen">{formError}</p>}
+                {formError && <p className="text-[12px] text-iris">{formError}</p>}
                 <button
                   type="button"
                   onClick={handleSave}
                   disabled={saving || !tokenInput.trim()}
-                  className="sketch-box px-3 py-1.5 text-sm text-ink disabled:opacity-50"
+                  className="press min-h-12 rounded-full bg-ink text-[15px] font-semibold text-paper disabled:opacity-40"
                 >
                   {saving ? "Bağlanıyor…" : "Kaydet"}
                 </button>

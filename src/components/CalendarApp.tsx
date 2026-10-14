@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { addMonths, isSameDay, monthGrid, toKey } from "@/lib/date";
 import { occurrencesForRange, occurrencesForDay, computeOverdue } from "@/lib/occurrences";
 import { useStore } from "@/lib/store";
@@ -12,32 +13,64 @@ import { AddItemSheet } from "./AddItemSheet";
 import { BellMenu } from "./BellMenu";
 import { SettingsSheet } from "./SettingsSheet";
 import { UnscheduledButton, UnscheduledPanel } from "./UnscheduledSheet";
+import { BrandEye } from "./Icons";
 
 /** A tap-tap within this window counts as a double-tap — more reliable than
  * the native `dblclick` event, which mobile Safari doesn't always fire
  * consistently for a standalone PWA. */
 const DOUBLE_TAP_MS = 300;
-const BOUNCE_MS = 320;
+const BLINK_MS = 240;
 
 export function CalendarApp() {
   const { data, ready } = useStore();
   const today = useToday();
   const { toggle: toggleTheme } = useTheme();
-  const [titleBouncing, setTitleBouncing] = useState(false);
+  const [blinking, setBlinking] = useState(false);
   const lastTitleTapRef = useRef(0);
+
+  const blink = useCallback(() => {
+    setBlinking(true);
+    window.setTimeout(() => setBlinking(false), BLINK_MS);
+  }, []);
+
+  // The header eye blinks on its own every few seconds — irregularly, like
+  // a real one — so the mark reads as watching rather than as a static logo.
+  useEffect(() => {
+    let timer: number;
+    const schedule = () => {
+      timer = window.setTimeout(() => {
+        blink();
+        schedule();
+      }, 4000 + Math.random() * 5000);
+    };
+    schedule();
+    return () => window.clearTimeout(timer);
+  }, [blink]);
 
   const handleTitleTap = useCallback(() => {
     const now = Date.now();
     if (now - lastTitleTapRef.current < DOUBLE_TAP_MS) {
       lastTitleTapRef.current = 0;
       toggleTheme();
-      setTitleBouncing(true);
-      setTimeout(() => setTitleBouncing(false), BOUNCE_MS);
+      blink();
     } else {
       lastTitleTapRef.current = now;
     }
-  }, [toggleTheme]);
-  const [monthAnchor, setMonthAnchor] = useState(today);
+  }, [toggleTheme, blink]);
+  // Month plus which way the last change went, kept in one state so the
+  // grid always slides the matching direction.
+  const [month, setMonth] = useState({ anchor: today, direction: 1 });
+  const monthAnchor = month.anchor;
+  const direction = month.direction;
+  const setMonthAnchor = useCallback((next: Date | ((m: Date) => Date)) => {
+    setMonth((prev) => {
+      const value = typeof next === "function" ? next(prev.anchor) : next;
+      const diff =
+        (value.getFullYear() - prev.anchor.getFullYear()) * 12 +
+        (value.getMonth() - prev.anchor.getMonth());
+      return { anchor: value, direction: diff === 0 ? prev.direction : diff > 0 ? 1 : -1 };
+    });
+  }, []);
   const [selected, setSelected] = useState(today);
   // The three overlay panels (settings, reminders, add-item) share one slot
   // so opening one always closes whichever other was already open, instead
@@ -57,7 +90,7 @@ export function CalendarApp() {
       setSelected((s) => (isSameDay(s, prevToday) ? today : s));
       prevTodayRef.current = today;
     }
-  }, [today]);
+  }, [today, setMonthAnchor]);
 
   // Computed once here and passed down to CalendarGrid (which also needs
   // both months' days to render) instead of each side independently
@@ -80,8 +113,13 @@ export function CalendarApp() {
     setActiveSheet((s) => (s === "unscheduled" ? null : s));
   }, []);
 
-  const handlePrevMonth = useCallback(() => setMonthAnchor((m) => addMonths(m, -1)), []);
-  const handleNextMonth = useCallback(() => setMonthAnchor((m) => addMonths(m, 1)), []);
+  const handlePrevMonth = useCallback(() => setMonthAnchor((m) => addMonths(m, -1)), [setMonthAnchor]);
+  const handleNextMonth = useCallback(() => setMonthAnchor((m) => addMonths(m, 1)), [setMonthAnchor]);
+  const handleToday = useCallback(() => {
+    setMonthAnchor(today);
+    setSelected(today);
+    setActiveSheet((s) => (s === "unscheduled" ? null : s));
+  }, [today, setMonthAnchor]);
 
   const overdue = useMemo(
     () => computeOverdue(data, data.completions, today),
@@ -115,15 +153,16 @@ export function CalendarApp() {
   if (!ready) return null;
 
   return (
-    <div className="mx-auto flex min-h-svh w-full max-w-md flex-col px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[env(safe-area-inset-bottom)]">
-      <header className="flex items-center justify-between pb-2">
+    <div className="mx-auto flex min-h-svh w-full max-w-md flex-col px-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
+      <header className="flex items-center justify-between px-2 pb-3">
         <h1
           onClick={handleTitleTap}
-          className={`select-none font-hand text-4xl text-ink ${titleBouncing ? "eyes-on-bounce" : ""}`}
+          className="flex select-none items-center gap-2.5 font-display text-[26px] font-bold tracking-tight text-ink"
         >
+          <BrandEye className="h-6 w-10" blinking={blinking} />
           Eyes On
         </h1>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 rounded-full bg-surface p-1 shadow-[0_1px_0_var(--line)]">
           <UnscheduledButton
             active={activeSheet === "unscheduled"}
             onClick={() =>
@@ -148,6 +187,7 @@ export function CalendarApp() {
 
       <CalendarGrid
         monthAnchor={monthAnchor}
+        direction={direction}
         days={days}
         nextMonthDays={nextMonthDays}
         selected={selected}
@@ -156,35 +196,57 @@ export function CalendarApp() {
         onSelect={handleSelectDay}
         onPrevMonth={handlePrevMonth}
         onNextMonth={handleNextMonth}
+        onToday={handleToday}
       />
 
-      {activeSheet === "unscheduled" ? (
-        <UnscheduledPanel
-          onSelectDate={(date) => {
-            setSelected(date);
-            setMonthAnchor(date);
-            setActiveSheet(null);
-          }}
-          onAdd={() => setActiveSheet("add-unscheduled")}
-        />
-      ) : (
-        <DayPanel
-          day={selected}
-          occurrences={selectedOccurrences}
-          onAdd={() => setActiveSheet("add")}
-        />
-      )}
+      <AnimatePresence mode="wait" initial={false}>
+        {activeSheet === "unscheduled" || activeSheet === "add-unscheduled" ? (
+          <motion.div
+            key="unscheduled"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 12 }}
+            transition={{ duration: 0.2 }}
+          >
+            <UnscheduledPanel
+              onSelectDate={(date) => {
+                setSelected(date);
+                setMonthAnchor(date);
+                setActiveSheet(null);
+              }}
+              onAdd={() => setActiveSheet("add-unscheduled")}
+            />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="day"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 12 }}
+            transition={{ duration: 0.2 }}
+          >
+            <DayPanel
+              day={selected}
+              occurrences={selectedOccurrences}
+              onAdd={() => setActiveSheet("add")}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {activeSheet === "add" && (
-        <AddItemSheet defaultDate={selected} onClose={() => setActiveSheet(null)} />
-      )}
-      {activeSheet === "add-unscheduled" && (
-        <AddItemSheet
-          defaultDate={selected}
-          unscheduled
-          onClose={() => setActiveSheet("unscheduled")}
-        />
-      )}
+      <AnimatePresence>
+        {activeSheet === "add" && (
+          <AddItemSheet key="add" defaultDate={selected} onClose={() => setActiveSheet(null)} />
+        )}
+        {activeSheet === "add-unscheduled" && (
+          <AddItemSheet
+            key="add-unscheduled"
+            defaultDate={selected}
+            unscheduled
+            onClose={() => setActiveSheet("unscheduled")}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

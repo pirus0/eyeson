@@ -12,9 +12,19 @@ export const KIND_LABELS: Record<ItemKind, string> = {
 };
 
 export const IMPORTANCE_DOT_CLASS: Record<Importance, string> = {
-  yuksek: "bg-[#a8442c]",
-  orta: "bg-[#b8873f]",
+  yuksek: "bg-iris",
+  orta: "bg-amber",
   dusuk: "bg-ink-faint",
+};
+
+/** Short kind label shown as a chip on each row. */
+export const KIND_SHORT: Record<ItemKind, string> = {
+  bill: "Fatura",
+  installment: "Taksit",
+  creditCard: "Kart",
+  recurringTodo: "Günlük",
+  weeklyTodo: "Haftalık",
+  oneOff: "Görev",
 };
 
 export function itemTitle(item: AnyItem): string {
@@ -31,4 +41,8 @@ export function formatAmount(amount?: number): string {
 
 /** Shared text-input look for every add/assign form field. */
 export const INPUT_CLASS =
-  "min-h-11 border-0 border-b-[1.5px] border-ink-faint/70 bg-transparent px-1 text-base text-ink placeholder:text-ink-faint/70 focus:border-ink focus:outline-none";
+  "min-h-12 w-full rounded-2xl border border-line bg-paper px-4 text-base text-ink placeholder:text-ink-faint transition-[border-color,box-shadow] duration-200 focus:border-ink/40 focus:outline-none focus:ring-4 focus:ring-ink/5";
+
+/** Small uppercase label above each form field. */
+export const FIELD_LABEL_CLASS =
+  "text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint";

@@ -3,10 +3,20 @@
 import type { Occurrence } from "@/lib/occurrences";
 import { creditCardCompanionDate, occurrenceAmount, occurrenceImportance } from "@/lib/occurrences";
 import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
 import type { CompletionMap, Importance } from "@/lib/types";
-import { formatDayTitle, formatShort, todayKey } from "@/lib/date";
-import { formatAmount, itemTitle, IMPORTANCE_DOT_CLASS, INPUT_CLASS } from "@/lib/itemMeta";
-import { CheckIcon, PlusIcon, ReassignIcon, TrashIcon } from "./Icons";
+import { formatShort, todayKey } from "@/lib/date";
+import {
+  FIELD_LABEL_CLASS,
+  formatAmount,
+  IMPORTANCE_DOT_CLASS,
+  INPUT_CLASS,
+  itemTitle,
+  KIND_SHORT,
+} from "@/lib/itemMeta";
+import { EyeMediumIcon, PlusIcon, ReassignIcon, TrashIcon } from "./Icons";
 import { ImportanceSelector } from "./ImportanceSelector";
 import { useStore } from "@/lib/store";
 
@@ -54,7 +64,11 @@ type RowProps = {
   overdue?: boolean;
   onToggleDone: (key: string, done: boolean) => void;
   onRemove: (kind: Occurrence["item"]["kind"], id: string) => void;
+  /** Position in the list — staggers the entrance when a day opens. */
+  index?: number;
 };
+
+const ROW_SPRING = { type: "spring", stiffness: 500, damping: 40 } as const;
 
 /** Inline "move to another day" form under an overdue one-off task —
  * payments can't be reassigned (their due date is fixed), recurring todos
@@ -73,47 +87,88 @@ function ReassignForm({
   const [importance, setImportance] = useState<Importance>(initialImportance ?? "orta");
 
   return (
-    <div className="flex flex-col gap-3 px-1 pb-3">
-      <label className="flex flex-col gap-1 text-sm text-ink-soft">
-        Yeni tarih
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          required
-          className={INPUT_CLASS}
-        />
-      </label>
-      <div className="flex flex-col gap-1 text-sm text-ink-soft">
-        Önem
-        <ImportanceSelector value={importance} onChange={setImportance} />
+    <motion.div
+      initial={{ height: 0, opacity: 0 }}
+      animate={{ height: "auto", opacity: 1 }}
+      exit={{ height: 0, opacity: 0 }}
+      transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
+      className="overflow-hidden"
+    >
+      <div className="flex flex-col gap-3 px-3 pb-3">
+        <label className="flex flex-col gap-1.5">
+          <span className={FIELD_LABEL_CLASS}>Yeni tarih</span>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            required
+            className={INPUT_CLASS}
+          />
+        </label>
+        <div className="flex flex-col gap-1.5">
+          <span className={FIELD_LABEL_CLASS}>Önem</span>
+          <ImportanceSelector value={importance} onChange={setImportance} />
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (!date) return;
+              assignOneOff(id, { date, importance });
+              onClose();
+            }}
+            disabled={!date}
+            className="press min-h-11 flex-1 rounded-full bg-ink text-[15px] font-semibold text-paper disabled:opacity-40"
+          >
+            Kaydet
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="press min-h-11 rounded-full px-4 text-[15px] font-medium text-ink-soft hover:bg-ink/5"
+          >
+            Vazgeç
+          </button>
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            if (!date) return;
-            assignOneOff(id, { date, importance });
-            onClose();
-          }}
-          disabled={!date}
-          className="sketch-box min-h-11 flex-1 bg-ink font-hand text-lg text-paper disabled:opacity-50 active:bg-pencil"
-        >
-          Kaydet
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="sketch-box min-h-11 px-4 text-sm text-ink-soft"
-        >
-          Vazgeç
-        </button>
-      </div>
-    </div>
+    </motion.div>
   );
 }
 
-function OccurrenceRow({ occ, overdue = false, onToggleDone, onRemove }: RowProps) {
+/** Round check that draws its tick in when completed. */
+function CheckCircle({ done, onClick }: { done: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={done ? "Tamamlanmadı olarak işaretle" : "Tamamlandı olarak işaretle"}
+      aria-pressed={done}
+      className="press -m-1.5 flex h-11 w-11 shrink-0 items-center justify-center"
+    >
+      <motion.span
+        className="flex h-7 w-7 items-center justify-center rounded-full border-[1.5px]"
+        initial={false}
+        animate={
+          done
+            ? { backgroundColor: "var(--ink)", borderColor: "var(--ink)", scale: [1, 1.18, 1] }
+            : { backgroundColor: "rgba(0,0,0,0)", borderColor: "var(--ink-faint)", scale: 1 }
+        }
+        transition={{ duration: 0.28 }}
+      >
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="var(--paper)" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
+          <motion.path
+            d="M5 12.5l4.5 4.5L19 7.5"
+            initial={false}
+            animate={{ pathLength: done ? 1 : 0, opacity: done ? 1 : 0 }}
+            transition={{ duration: 0.26, delay: done ? 0.06 : 0 }}
+          />
+        </svg>
+      </motion.span>
+    </button>
+  );
+}
+
+function OccurrenceRow({ occ, overdue = false, onToggleDone, onRemove, index = 0 }: RowProps) {
   const [reassigning, setReassigning] = useState(false);
   const { item } = occ;
   const canReassign = overdue && item.kind === "oneOff";
@@ -127,52 +182,80 @@ function OccurrenceRow({ occ, overdue = false, onToggleDone, onRemove }: RowProp
       )}`
     : null;
 
+  const meta = [
+    overdue ? formatShort(occ.date) : null,
+    occ.installmentProgress
+      ? `${occ.installmentProgress.index}/${occ.installmentProgress.total}. taksit`
+      : null,
+    companionLabel,
+  ].filter(Boolean);
+
   return (
-    <li className="border-b border-dashed border-ink-faint/40 last:border-b-0">
-      <div className="flex items-center gap-3 py-3 px-1">
+    <motion.li
+      layout="position"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0, transition: { ...ROW_SPRING, delay: Math.min(index * 0.035, 0.25) } }}
+      exit={{ opacity: 0, x: -24, transition: { duration: 0.18 } }}
+      transition={ROW_SPRING}
+      className="relative"
+    >
+      <div className="flex items-center gap-3 rounded-2xl px-3 py-2.5">
         {isStatementRow ? (
-          <span className="h-11 w-11 shrink-0" aria-hidden />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden>
+            <span className="h-1.5 w-1.5 rounded-full bg-ink-faint" />
+          </span>
         ) : (
-          <button
-            type="button"
-            onClick={() => onToggleDone(occ.key, !occ.done)}
-            aria-label={occ.done ? "Tamamlanmadı olarak işaretle" : "Tamamlandı olarak işaretle"}
-            className={[
-              "sketch-box flex h-11 w-11 shrink-0 items-center justify-center",
-              occ.done ? "bg-ink/90 text-paper" : "text-transparent",
-            ].join(" ")}
-          >
-            <CheckIcon className="h-4 w-4" />
-          </button>
+          <CheckCircle done={occ.done} onClick={() => onToggleDone(occ.key, !occ.done)} />
         )}
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             {importance && (
               <span
-                className={`h-2 w-2 shrink-0 rounded-full ${IMPORTANCE_DOT_CLASS[importance]}`}
+                className={`h-2 w-2 shrink-0 rounded-full ${IMPORTANCE_DOT_CLASS[importance]} ${
+                  occ.done ? "opacity-40" : ""
+                }`}
                 title="Önem"
               />
             )}
             <p
               className={[
-                "text-[15px] font-medium",
-                occ.done ? "text-ink-faint line-through" : overdue ? "text-red-pen" : "text-ink",
+                "relative text-[15px] leading-snug font-medium transition-colors duration-300",
+                occ.done ? "text-ink-faint" : overdue ? "text-iris" : "text-ink",
               ].join(" ")}
             >
               {itemTitle(item)}
               {isStatementRow && " · kesim"}
+              <motion.span
+                aria-hidden
+                className="absolute top-1/2 left-0 h-[1.5px] w-full origin-left bg-ink-faint"
+                initial={false}
+                animate={{ scaleX: occ.done ? 1 : 0 }}
+                transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}
+              />
             </p>
           </div>
-          <p className={["text-xs", overdue ? "text-red-pen/80" : "text-ink-faint"].join(" ")}>
-            {overdue ? formatShort(occ.date) : null}
-            {amount !== undefined ? `${overdue ? " · " : ""}${formatAmount(amount)}` : null}
-            {occ.installmentProgress
-              ? `${amount !== undefined || overdue ? " · " : ""}${occ.installmentProgress.index}/${occ.installmentProgress.total}. taksit`
-              : null}
-            {companionLabel ? `${amount !== undefined ? " · " : ""}${companionLabel}` : null}
-          </p>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-ink-faint">
+            <span className="rounded-full bg-ink/5 px-1.5 py-px text-[10.5px] font-semibold tracking-wide uppercase">
+              {KIND_SHORT[item.kind]}
+            </span>
+            {meta.map((m) => (
+              <span key={m as string} className={overdue ? "text-iris/80" : undefined}>
+                {m}
+              </span>
+            ))}
+          </div>
         </div>
+
+        {amount !== undefined && (
+          <span
+            className={`tabular shrink-0 text-[14px] font-semibold ${
+              occ.done ? "text-ink-faint line-through" : overdue ? "text-iris" : "text-ink"
+            }`}
+          >
+            {formatAmount(amount)}
+          </span>
+        )}
 
         {canReassign && (
           <button
@@ -180,7 +263,9 @@ function OccurrenceRow({ occ, overdue = false, onToggleDone, onRemove }: RowProp
             onClick={() => setReassigning((v) => !v)}
             aria-label="Yeniden ata"
             aria-expanded={reassigning}
-            className="-mr-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-red-pen/80 active:bg-graphite-wash"
+            className={`press -mr-1 flex h-11 w-9 shrink-0 items-center justify-center rounded-full text-iris ${
+              reassigning ? "bg-iris-soft" : ""
+            }`}
           >
             <ReassignIcon className="h-4 w-4" />
           </button>
@@ -190,19 +275,22 @@ function OccurrenceRow({ occ, overdue = false, onToggleDone, onRemove }: RowProp
           type="button"
           onClick={() => onRemove(item.kind, item.id)}
           aria-label="Sil"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-faint active:bg-graphite-wash active:text-ink-soft"
+          className="press -mr-2 flex h-11 w-9 shrink-0 items-center justify-center rounded-full text-ink-faint/70 hover:text-ink-soft active:text-iris"
         >
-          <TrashIcon className="h-4 w-4" />
+          <TrashIcon className="h-[17px] w-[17px]" />
         </button>
       </div>
-      {reassigning && item.kind === "oneOff" && (
-        <ReassignForm
-          id={item.id}
-          initialImportance={item.importance}
-          onClose={() => setReassigning(false)}
-        />
-      )}
-    </li>
+      <AnimatePresence initial={false}>
+        {reassigning && item.kind === "oneOff" && (
+          <ReassignForm
+            key="reassign"
+            id={item.id}
+            initialImportance={item.importance}
+            onClose={() => setReassigning(false)}
+          />
+        )}
+      </AnimatePresence>
+    </motion.li>
   );
 }
 
@@ -213,51 +301,111 @@ export function DayPanel({ day, occurrences, onAdd }: Props) {
   const own = occurrences.filter((occ) => !occ.carriedOverdue);
 
   const sorted = sortOccurrences(own, data.completions);
+  const openCount = own.filter((o) => !o.done && o.role !== "statement").length;
+  const openTotal = own.reduce((sum, o) => {
+    if (o.done || o.role === "statement") return sum;
+    return sum + (occurrenceAmount(o) ?? 0);
+  }, 0);
+  const dayKey = format(day, "yyyy-MM-dd");
 
   return (
-    <div className="mt-2 border-t border-dashed border-ink-faint/60 pt-3">
-      <div className="flex items-center justify-between px-1 pb-2">
-        <h3 className="font-hand text-2xl capitalize text-ink-soft">{formatDayTitle(day)}</h3>
-        <button
+    <section className="mt-3 rounded-[28px] bg-surface px-2 pt-4 pb-3 shadow-[0_1px_0_var(--line),0_12px_32px_-20px_rgba(0,0,0,0.25)]">
+      <div className="flex items-center justify-between gap-3 px-3 pb-3">
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.div
+            key={dayKey}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.18 }}
+            className="flex min-w-0 items-center gap-3"
+          >
+            <span className="tabular font-display text-[40px] leading-none font-semibold tracking-tight text-ink">
+              {day.getDate()}
+            </span>
+            <div className="min-w-0 leading-tight">
+              <p className="text-[15px] font-semibold text-ink capitalize">
+                {format(day, "EEEE", { locale: tr })}
+              </p>
+              <p className="truncate text-[13px] text-ink-faint">
+                {format(day, "LLLL yyyy", { locale: tr })}
+                {openCount > 0 && ` · ${openCount} açık`}
+                {openTotal > 0 && ` · ${formatAmount(openTotal)}`}
+              </p>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+        <motion.button
           type="button"
           onClick={onAdd}
           aria-label="Ekle"
-          className="sketch-box sketch-rotate flex h-11 w-11 items-center justify-center text-ink active:bg-graphite-wash"
+          whileTap={{ scale: 0.9, rotate: 90 }}
+          transition={{ type: "spring", stiffness: 500, damping: 26 }}
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-iris text-on-iris shadow-[0_8px_20px_-8px_var(--iris)]"
         >
-          <PlusIcon className="h-5 w-5" />
-        </button>
+          <PlusIcon className="h-[22px] w-[22px]" />
+        </motion.button>
       </div>
 
-      {overdue.length > 0 && (
-        <div className="mb-3">
-          <p className="px-1 pb-1 font-hand text-lg text-red-pen">Gecikmiş</p>
-          <ul className="flex flex-col rounded-md border border-dashed border-red-pen/40">
-            {overdue.map((occ) => (
+      <AnimatePresence initial={false}>
+        {overdue.length > 0 && (
+          <motion.div
+            key="overdue"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="mx-1 mb-2 rounded-[22px] bg-iris-soft pt-2.5 pb-1">
+              <p className="flex items-center gap-1.5 px-3 pb-0.5 text-[11px] font-semibold tracking-[0.08em] text-iris uppercase">
+                <span className="h-1.5 w-1.5 rounded-full bg-iris" />
+                Gecikmiş · {overdue.length}
+              </p>
+              <ul className="flex flex-col">
+                <AnimatePresence initial={false}>
+                  {overdue.map((occ) => (
+                    <OccurrenceRow
+                      key={occ.key}
+                      occ={occ}
+                      overdue
+                      onToggleDone={setDone}
+                      onRemove={removeItem}
+                    />
+                  ))}
+                </AnimatePresence>
+              </ul>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {sorted.length === 0 ? (
+        overdue.length === 0 && (
+          <motion.div
+            key={`empty-${dayKey}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center gap-2 px-3 pt-4 pb-6 text-center"
+          >
+            <EyeMediumIcon className="h-5 w-9 text-ink-faint/30" />
+            <p className="text-[14px] text-ink-faint">Bu günde bir şey yok.</p>
+          </motion.div>
+        )
+      ) : (
+        <ul key={dayKey} className="flex flex-col">
+          <AnimatePresence>
+            {sorted.map((occ, i) => (
               <OccurrenceRow
                 key={occ.key}
                 occ={occ}
-                overdue
+                index={i}
                 onToggleDone={setDone}
                 onRemove={removeItem}
               />
             ))}
-          </ul>
-        </div>
-      )}
-
-      {sorted.length === 0 ? (
-        overdue.length === 0 && (
-          <p className="px-1 py-6 text-center font-hand text-xl text-ink-faint">
-            Bu günde bir şey yok.
-          </p>
-        )
-      ) : (
-        <ul className="flex flex-col">
-          {sorted.map((occ) => (
-            <OccurrenceRow key={occ.key} occ={occ} onToggleDone={setDone} onRemove={removeItem} />
-          ))}
+          </AnimatePresence>
         </ul>
       )}
-    </div>
+    </section>
   );
 }

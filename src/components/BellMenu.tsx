@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { useStore } from "@/lib/store";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { computeReminders, occurrenceAmount, type Reminder } from "@/lib/occurrences";
@@ -83,13 +84,13 @@ function ReminderRow({
   return (
     <li
       ref={rowRef}
-      className="relative overflow-hidden border-b border-dashed border-ink-faint/40 last:border-b-0"
+      className="relative overflow-hidden rounded-2xl"
       onTransitionEnd={() => {
         if (exiting) onDismiss();
       }}
     >
       <div
-        className={`pointer-events-none absolute inset-0 flex items-center justify-between px-4 text-ink-soft transition-opacity ${revealClass}`}
+        className={`pointer-events-none absolute inset-0 flex items-center justify-between rounded-2xl bg-ink px-5 text-paper transition-opacity ${revealClass}`}
         aria-hidden
       >
         <CheckIcon className="h-4 w-4" />
@@ -107,20 +108,24 @@ function ReminderRow({
           transition: dragging ? "none" : "transform 200ms ease",
           touchAction: "pan-y",
         }}
-        className="flex w-full items-center gap-3 bg-paper py-3 text-left"
+        className="flex w-full items-center gap-3 rounded-2xl bg-surface px-3 py-3 text-left hover:bg-paper"
       >
         <span className={`h-2 w-2 shrink-0 rounded-full ${IMPORTANCE_DOT_CLASS[importance]}`} />
         <div className="min-w-0 flex-1">
           <p className="text-[15px] font-medium text-ink">{itemTitle(reminder.item)}</p>
-          <p className="text-xs text-ink-faint">
+          <p className="tabular text-[12px] text-ink-faint">
             {formatShort(reminder.date)}
             {amount !== undefined ? ` · ${formatAmount(amount)}` : ""}
           </p>
         </div>
         <span
           className={[
-            "sketch-box shrink-0 px-2 py-1 text-xs font-medium",
-            reminder.overdue ? "text-red-pen" : "text-ink-soft",
+            "shrink-0 rounded-full px-2.5 py-1 text-[12px] font-semibold",
+            reminder.overdue
+              ? "bg-iris text-on-iris"
+              : reminder.daysUntilDue === 0
+                ? "bg-iris-soft text-iris"
+                : "bg-ink/5 text-ink-soft",
           ].join(" ")}
         >
           {reminder.overdue
@@ -145,24 +150,42 @@ export function BellMenu({ today, onSelectDate, open, onOpenChange }: Props) {
 
   return (
     <>
-      <IconButton onClick={() => onOpenChange(true)} ariaLabel="Hatırlatıcılar" className="relative text-ink">
-        <BellIcon className="h-6 w-6" />
-        {reminders.length > 0 && (
-          <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-pen px-1 text-[10px] font-semibold text-paper">
-            {reminders.length}
-          </span>
-        )}
+      <IconButton onClick={() => onOpenChange(true)} ariaLabel="Hatırlatıcılar" className="text-ink">
+        <motion.span
+          className="flex"
+          animate={reminders.length > 0 ? { rotate: [0, -14, 12, -8, 5, 0] } : { rotate: 0 }}
+          transition={{ duration: 0.7, delay: 0.6 }}
+          style={{ transformOrigin: "50% 15%" }}
+        >
+          <BellIcon className="h-[22px] w-[22px]" />
+        </motion.span>
+        <AnimatePresence>
+          {reminders.length > 0 && (
+            <motion.span
+              key={reminders.length}
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0 }}
+              transition={{ type: "spring", stiffness: 600, damping: 20 }}
+              className="tabular absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-iris px-1 text-[10px] font-bold text-on-iris"
+            >
+              {reminders.length}
+            </motion.span>
+          )}
+        </AnimatePresence>
       </IconButton>
 
-      <Sheet open={open} onClose={() => onOpenChange(false)} title="Yaklaşan ödemeler">
+      <Sheet
+        open={open}
+        onClose={() => onOpenChange(false)}
+        title="Yaklaşan ödemeler"
+        subtitle={reminders.length > 0 ? "Hallettiysen kaydırarak işaretleyebilirsin." : undefined}
+      >
         {reminders.length === 0 ? (
-          <p className="py-6 text-center font-hand text-xl text-ink-faint">Yaklaşan ödeme yok.</p>
+          <p className="py-8 text-center text-[15px] text-ink-faint">Yaklaşan ödeme yok.</p>
         ) : (
           <>
-            <p className="px-1 pb-2 text-xs text-ink-faint">
-              Hallettiysen kaydırarak işaretleyebilirsin.
-            </p>
-            <ul className="flex flex-col">
+            <ul className="-mx-2 flex flex-col gap-0.5">
               {reminders.map((r) => (
                 <ReminderRow
                   key={r.key}

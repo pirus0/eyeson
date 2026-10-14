@@ -2,54 +2,63 @@
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* Palette is pulled from the app icon: warm bone paper, near-black ink for
+   the almond eye, and the rust-red pupil as the single accent. Everything
+   else (surfaces, lines, muted text) is a tint between those three so the
+   app reads as one object with its icon. */
 :root {
-  --paper: #f4f0e4;
-  --ink: #33312c;
-  --ink-soft: #56534a;
-  --ink-faint: #8b877a;
-  --pencil: #4a473e;
-  --red-pen: #a8442c;
-  --graphite-wash: rgba(51, 49, 44, 0.06);
-  /* Always-pale tone for text drawn on a filled/dark shape (e.g. the urgent-day
-     circle). Deliberately not overridden in dark mode: the fills it sits on
-     stay dark-ish in both themes, so the tone that gives contrast doesn't change. */
-  --ink-invert: #f5f0e6;
+  --paper: #efebe2;
+  --surface: #faf8f3;
+  --surface-2: #e6e1d6;
+  --ink: #1d1b18;
+  --ink-soft: #4d4943;
+  --ink-faint: #8f897e;
+  --line: rgba(29, 27, 24, 0.09);
+  --iris: #b8462b;
+  --iris-soft: rgba(184, 70, 43, 0.12);
+  --amber: #c08a2e;
+  --on-iris: #fff8f2;
+  --scrim: rgba(29, 27, 24, 0.32);
 }
 
 :root[data-theme="dark"] {
-  --paper: #16140f;
-  --ink: #e8e2d3;
-  --ink-soft: #c3bda8;
-  --ink-faint: #837c68;
-  --pencil: #b7b09a;
-  --red-pen: #e2543a;
-  --graphite-wash: rgba(232, 226, 211, 0.08);
+  --paper: #11100e;
+  --surface: #1b1a17;
+  --surface-2: #26241f;
+  --ink: #f1ece2;
+  --ink-soft: #c9c2b4;
+  --ink-faint: #81796b;
+  --line: rgba(241, 236, 226, 0.09);
+  --iris: #e5603f;
+  --iris-soft: rgba(229, 96, 63, 0.16);
+  --amber: #dda24a;
+  --on-iris: #1a0d08;
+  --scrim: rgba(0, 0, 0, 0.55);
 }
 
 @theme inline {
   --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-ink-faint: var(--ink-faint);
-  --color-pencil: var(--pencil);
-  --color-red-pen: var(--red-pen);
-  --color-graphite-wash: var(--graphite-wash);
-  --color-ink-invert: var(--ink-invert);
+  --color-line: var(--line);
+  --color-iris: var(--iris);
+  --color-iris-soft: var(--iris-soft);
+  --color-amber: var(--amber);
+  --color-on-iris: var(--on-iris);
   --font-sans: var(--font-geist-sans);
-  --font-hand: var(--font-caveat);
+  --font-display: var(--font-bricolage);
   --font-mono: var(--font-geist-mono);
 }
 
 html,
 body {
   /* Nothing in this app scrolls sideways — a drag that starts on plain
-     content (not a button, not one of the few elements that opt back into
-     horizontal panning below) should never be interpreted as a page-level
-     gesture. Without this, an accidental horizontal drag anywhere over a
-     sheet/menu reads as the browser's own swipe-back/rubber-band gesture and
-     visibly shifts the whole view sideways — the "menus wobble" bug. `pan-y`
-     keeps normal vertical scrolling; `overscroll-behavior: none` also drops
-     the bounce/pull-to-refresh effect at the top/bottom edges. */
+     content should never be read as the browser's own swipe-back/rubber-band
+     gesture (the old "menus wobble" bug). `pan-y` keeps vertical scrolling;
+     `overscroll-behavior: none` drops the bounce/pull-to-refresh. */
   touch-action: pan-y;
   overscroll-behavior: none;
 }
@@ -58,104 +67,77 @@ body {
   background-color: var(--paper);
   color: var(--ink);
   font-family: var(--font-sans), system-ui, sans-serif;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0.2  0 0 0 0 0.19  0 0 0 0 0.17  0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  background-size: 140px 140px;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.35s ease, color 0.35s ease;
 }
 
-:root[data-theme="dark"] body {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0.9  0 0 0 0 0.88  0 0 0 0 0.84  0 0 0 0.055 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+button {
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
-/* Hand-drawn box: irregular corner radii + a slight rotation so straight CSS
-   borders read as pencil-drawn rather than machine-perfect. Two more, fainter
-   edges (::before, ::after) retrace the outline off true by different amounts
-   — like a pencil line gone over unevenly, so some stretches line up close to
-   the original stroke and others visibly diverge into a second/third pass. */
-.sketch-box,
-.sketch-box-alt {
-  position: relative;
-  border: 1.5px solid var(--ink);
+/* Every pressable thing sinks a little under the finger — the one piece of
+   feedback shared by all buttons, so it lives here instead of on each one. */
+.press {
+  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 160ms ease,
+    color 160ms ease, opacity 160ms ease;
+}
+.press:active {
+  transform: scale(0.94);
 }
 
-.sketch-box {
-  border-radius: 255px 12px 225px 12px / 12px 225px 12px 255px;
-}
-
-.sketch-box-alt {
-  border-radius: 12px 225px 12px 255px / 225px 12px 255px 12px;
-}
-
-.sketch-box::before,
-.sketch-box::after,
-.sketch-box-alt::before,
-.sketch-box-alt::after {
-  content: "";
-  position: absolute;
-  border: 1px solid var(--ink);
-  pointer-events: none;
-}
-
-.sketch-box::before {
-  inset: 1.5px -3px -3px 1.5px;
-  border-radius: 245px 10px 235px 14px / 10px 235px 14px 245px;
-  opacity: 0.25;
-  transform: rotate(0.9deg);
-}
-
-.sketch-box::after {
-  inset: -3.5px 2px 2px -3.5px;
-  border-radius: 12px 235px 16px 260px / 235px 16px 260px 12px;
-  opacity: 0.45;
-  transform: rotate(-1.3deg);
-}
-
-.sketch-box-alt::before {
-  inset: 1.5px 1.5px -3px -3px;
-  border-radius: 10px 245px 14px 235px / 245px 14px 235px 10px;
-  opacity: 0.25;
-  transform: rotate(-0.9deg);
-}
-
-.sketch-box-alt::after {
-  inset: -3.5px -3.5px 2px 2px;
-  border-radius: 235px 16px 260px 12px / 16px 260px 12px 235px;
-  opacity: 0.45;
-  transform: rotate(1.3deg);
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Hides the scrollbar on the horizontal number picker — its own snap-center
-   buttons already show position, a scrollbar underneath just adds chrome. */
+   buttons already show position. */
 .no-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
 
-.sketch-rotate {
-  transform: rotate(-0.35deg);
-}
-
-.sketch-rotate-r {
-  transform: rotate(0.35deg);
-}
-
-@keyframes eyes-on-bounce {
-  0% {
-    transform: scale(1);
-  }
-  40% {
-    transform: scale(1.18);
-  }
+/* The header eye blinks: lid closes from top and bottom at once. */
+@keyframes eye-blink {
+  0%,
   100% {
-    transform: scale(1);
+    transform: scaleY(1);
+  }
+  45%,
+  55% {
+    transform: scaleY(0.08);
   }
 }
+.eye-blink {
+  transform-origin: 50% 50%;
+  animation: eye-blink 220ms ease-in-out;
+}
 
-.eyes-on-bounce {
-  display: inline-block;
-  animation: eyes-on-bounce 320ms ease;
+/* Urgent unpaid days: the tiny eye under the number breathes slowly so the
+   day reads as "still open" without flashing. */
+@keyframes eye-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+.eye-breathe {
+  animation: eye-breathe 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

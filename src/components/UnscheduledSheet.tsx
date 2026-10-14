@@ -5,7 +5,8 @@ import { useStore } from "@/lib/store";
 import { unscheduledOneOffs } from "@/lib/occurrences";
 import { fromKey, todayKey } from "@/lib/date";
 import { type Importance } from "@/lib/types";
-import { INPUT_CLASS } from "@/lib/itemMeta";
+import { FIELD_LABEL_CLASS, INPUT_CLASS } from "@/lib/itemMeta";
+import { AnimatePresence, motion } from "motion/react";
 import { PlusIcon, QuestionIcon, TrashIcon } from "./Icons";
 import { IconButton } from "./IconButton";
 import { ImportanceSelector } from "./ImportanceSelector";
@@ -31,7 +32,13 @@ function AssignRow({
   }
 
   return (
-    <li className="border-b border-dashed border-ink-faint/40 py-3 px-1 last:border-b-0">
+    <motion.li
+      layout="position"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, x: -24 }}
+      className="rounded-2xl px-3 py-2.5"
+    >
       <div className="flex items-center gap-3">
         <p className="min-w-0 flex-1 text-[15px] font-medium text-ink">{title}</p>
         {!assigning && (
@@ -39,7 +46,7 @@ function AssignRow({
             <button
               type="button"
               onClick={() => setAssigning(true)}
-              className="sketch-box shrink-0 px-3 py-1.5 text-sm font-medium text-ink"
+              className="press h-9 shrink-0 rounded-full bg-ink px-4 text-[13px] font-semibold text-paper"
             >
               Ata
             </button>
@@ -47,7 +54,7 @@ function AssignRow({
               type="button"
               onClick={() => removeItem("oneOff", id)}
               aria-label="Sil"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-faint active:bg-graphite-wash active:text-ink-soft"
+              className="press -mr-2 flex h-11 w-9 shrink-0 items-center justify-center rounded-full text-ink-faint/70 hover:text-ink-soft active:text-iris"
             >
               <TrashIcon className="h-4 w-4" />
             </button>
@@ -55,10 +62,18 @@ function AssignRow({
         )}
       </div>
 
+      <AnimatePresence initial={false}>
       {assigning && (
-        <div className="mt-3 flex flex-col gap-3 pl-1">
-          <label className="flex flex-col gap-1 text-sm text-ink-soft">
-            Tarih
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.22 }}
+          className="overflow-hidden"
+        >
+        <div className="flex flex-col gap-3 pt-3">
+          <label className="flex flex-col gap-1.5">
+            <span className={FIELD_LABEL_CLASS}>Tarih</span>
             <input
               type="date"
               value={date}
@@ -67,8 +82,8 @@ function AssignRow({
               className={INPUT_CLASS}
             />
           </label>
-          <div className="flex flex-col gap-1 text-sm text-ink-soft">
-            Önem
+          <div className="flex flex-col gap-1.5">
+            <span className={FIELD_LABEL_CLASS}>Önem</span>
             <ImportanceSelector value={importance} onChange={setImportance} />
           </div>
           <div className="flex items-center gap-2">
@@ -76,21 +91,23 @@ function AssignRow({
               type="button"
               onClick={handleSave}
               disabled={!date}
-              className="sketch-box min-h-11 flex-1 bg-ink font-hand text-lg text-paper disabled:opacity-50 active:bg-pencil"
+              className="press min-h-11 flex-1 rounded-full bg-ink text-[15px] font-semibold text-paper disabled:opacity-40"
             >
               Kaydet
             </button>
             <button
               type="button"
               onClick={() => setAssigning(false)}
-              className="sketch-box min-h-11 px-4 text-sm text-ink-soft"
+              className="press min-h-11 rounded-full px-4 text-[15px] font-medium text-ink-soft hover:bg-ink/5"
             >
               Vazgeç
             </button>
           </div>
         </div>
+        </motion.div>
       )}
-    </li>
+      </AnimatePresence>
+    </motion.li>
   );
 }
 
@@ -110,11 +127,11 @@ export function UnscheduledButton({ active, onClick }: ButtonProps) {
     <IconButton
       onClick={onClick}
       ariaLabel="Zamanı belirsiz görevler"
-      className={`relative ${active ? "bg-graphite-wash text-ink" : "text-ink"}`}
+      className={active ? "bg-ink text-paper" : "text-ink"}
     >
-      <QuestionIcon className="h-5 w-5" />
+      <QuestionIcon className="h-[22px] w-[22px]" />
       {count > 0 && (
-        <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-pencil px-1 text-[10px] font-semibold text-paper">
+        <span className="tabular absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-ink-soft px-1 text-[10px] font-bold text-paper">
           {count}
         </span>
       )}
@@ -135,35 +152,51 @@ export function UnscheduledPanel({ onSelectDate, onAdd }: PanelProps) {
   const items = useMemo(() => unscheduledOneOffs(data), [data]);
 
   return (
-    <div className="mt-2 border-t border-dashed border-ink-faint/60 pt-3">
-      <div className="flex items-center justify-between px-1 pb-2">
-        <h3 className="font-hand text-2xl text-ink-soft">Zamanı belirsiz</h3>
-        <button
+    <section className="mt-3 rounded-[28px] bg-surface px-2 pt-4 pb-3 shadow-[0_1px_0_var(--line),0_12px_32px_-20px_rgba(0,0,0,0.25)]">
+      <div className="flex items-center justify-between gap-3 px-3 pb-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink/5 text-ink">
+            <QuestionIcon className="h-5 w-5" />
+          </span>
+          <div className="leading-tight">
+            <h3 className="font-display text-[20px] font-semibold tracking-tight text-ink">
+              Zamanı belirsiz
+            </h3>
+            <p className="text-[13px] text-ink-faint">
+              {items.length > 0 ? `${items.length} görev bekliyor` : "Günü belli olmayanlar"}
+            </p>
+          </div>
+        </div>
+        <motion.button
           type="button"
           onClick={onAdd}
           aria-label="Ekle"
-          className="sketch-box sketch-rotate flex h-11 w-11 items-center justify-center text-ink active:bg-graphite-wash"
+          whileTap={{ scale: 0.9, rotate: 90 }}
+          transition={{ type: "spring", stiffness: 500, damping: 26 }}
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-iris text-on-iris shadow-[0_8px_20px_-8px_var(--iris)]"
         >
-          <PlusIcon className="h-5 w-5" />
-        </button>
+          <PlusIcon className="h-[22px] w-[22px]" />
+        </motion.button>
       </div>
 
       {items.length === 0 ? (
-        <p className="px-1 py-6 text-center font-hand text-xl text-ink-faint">
+        <p className="px-3 pt-4 pb-6 text-center text-[14px] text-ink-faint">
           Günü belirsiz görev yok.
         </p>
       ) : (
         <>
-          <p className="px-1 pb-2 text-xs text-ink-faint">
+          <p className="px-3 pb-2 text-[12px] text-ink-faint">
             Günü ve zamanı henüz belirlenmemiş görevler. Hazır olduğunda ata.
           </p>
           <ul className="flex flex-col">
-            {items.map((o) => (
-              <AssignRow key={o.id} id={o.id} title={o.title} onDone={onSelectDate} />
-            ))}
+            <AnimatePresence initial={false}>
+              {items.map((o) => (
+                <AssignRow key={o.id} id={o.id} title={o.title} onDone={onSelectDate} />
+              ))}
+            </AnimatePresence>
           </ul>
         </>
       )}
-    </div>
+    </section>
   );
 }

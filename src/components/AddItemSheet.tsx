@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { getDate, mondayIndex, toKey } from "@/lib/date";
 import type { Importance } from "@/lib/types";
-import { INPUT_CLASS, type ItemKind } from "@/lib/itemMeta";
+import { FIELD_LABEL_CLASS, INPUT_CLASS, type ItemKind } from "@/lib/itemMeta";
+import { AnimatePresence, motion } from "motion/react";
 import { useStore } from "@/lib/store";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { HorizontalNumberPicker } from "./HorizontalNumberPicker";
@@ -102,15 +103,15 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
   const isTitleOnly = TITLE_ONLY_KINDS.includes(kind);
 
   return (
-    <Sheet open title="Yeni kayıt" onClose={onClose} maxHeightClassName="max-h-[90vh]">
-        <div className="flex flex-col gap-1 pb-4 text-sm text-ink-soft">
-          Tür
+    <Sheet open title="Yeni kayıt" onClose={onClose} maxHeightClassName="max-h-[92vh]">
+        <div className="flex flex-col gap-1.5 pb-4">
+          <span className={FIELD_LABEL_CLASS}>Tür</span>
           <KindSelector value={kind} onChange={setKind} />
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1 text-sm text-ink-soft">
-            {isTitleOnly ? "Başlık" : "Ad"}
+          <label className="flex flex-col gap-1.5">
+            <span className={FIELD_LABEL_CLASS}>{isTitleOnly ? "Başlık" : "Ad"}</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -128,9 +129,18 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
             />
           </label>
 
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.div
+              key={kind}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2 }}
+              className="flex flex-col gap-4"
+            >
           {isPayment && (
-            <label className="flex flex-col gap-1 text-sm text-ink-soft">
-              Tutar {kind === "bill" || kind === "creditCard" ? "(opsiyonel)" : ""}
+            <label className="flex flex-col gap-1.5">
+              <span className={FIELD_LABEL_CLASS}>Tutar {kind === "bill" || kind === "creditCard" ? "(opsiyonel)" : ""}</span>
               <input
                 type="number"
                 inputMode="decimal"
@@ -146,16 +156,16 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
           )}
 
           {kind === "bill" && (
-            <div className="flex flex-col gap-1 text-sm text-ink-soft">
-              Ayın kaçında
+            <div className="flex flex-col gap-1.5">
+              <span className={FIELD_LABEL_CLASS}>Ayın kaçında</span>
               <HorizontalNumberPicker min={1} max={31} value={dayOfMonth} onChange={setDayOfMonth} />
             </div>
           )}
 
           {kind === "creditCard" && (
             <>
-              <div className="flex flex-col gap-1 text-sm text-ink-soft">
-                Hesap kesim günü
+              <div className="flex flex-col gap-1.5">
+                <span className={FIELD_LABEL_CLASS}>Hesap kesim günü</span>
                 <HorizontalNumberPicker
                   min={1}
                   max={31}
@@ -163,20 +173,20 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
                   onChange={setStatementDay}
                 />
               </div>
-              <div className="flex flex-col gap-1 text-sm text-ink-soft">
-                Son ödeme günü
+              <div className="flex flex-col gap-1.5">
+                <span className={FIELD_LABEL_CLASS}>Son ödeme günü</span>
                 <HorizontalNumberPicker min={1} max={31} value={dueDay} onChange={setDueDay} />
               </div>
-              <p className="text-xs text-ink-faint">
-                Takvimde iki gün de görünür; alev ve hatırlatıcı sadece son ödeme gününde olur.
+              <p className="text-[12px] text-ink-faint">
+                Takvimde iki gün de görünür; göz ve hatırlatıcı sadece son ödeme gününde olur.
               </p>
             </>
           )}
 
           {kind === "installment" && (
             <>
-              <label className="flex flex-col gap-1 text-sm text-ink-soft">
-                İlk taksit tarihi
+              <label className="flex flex-col gap-1.5">
+                <span className={FIELD_LABEL_CLASS}>İlk taksit tarihi</span>
                 <input
                   type="date"
                   value={startDate}
@@ -185,16 +195,16 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
                   className={INPUT_CLASS}
                 />
               </label>
-              <div className="flex flex-col gap-1 text-sm text-ink-soft">
-                Taksit sayısı
+              <div className="flex flex-col gap-1.5">
+                <span className={FIELD_LABEL_CLASS}>Taksit sayısı</span>
                 <HorizontalNumberPicker min={1} max={60} value={count} onChange={setCount} />
               </div>
             </>
           )}
 
           {(kind === "recurringTodo" || kind === "weeklyTodo") && (
-            <label className="flex flex-col gap-1 text-sm text-ink-soft">
-              Başlangıç tarihi
+            <label className="flex flex-col gap-1.5">
+              <span className={FIELD_LABEL_CLASS}>Başlangıç tarihi</span>
               <input
                 type="date"
                 value={startDate}
@@ -206,16 +216,16 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
           )}
 
           {kind === "weeklyTodo" && (
-            <div className="flex flex-col gap-1 text-sm text-ink-soft">
-              Hangi gün
+            <div className="flex flex-col gap-1.5">
+              <span className={FIELD_LABEL_CLASS}>Hangi gün</span>
               <WeekdaySelector value={weekday} onChange={setWeekday} />
             </div>
           )}
 
           {kind === "oneOff" && (
-            <div className="flex flex-col gap-2 text-sm text-ink-soft">
+            <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                Tarih
+                <span className={FIELD_LABEL_CLASS}>Tarih</span>
                 <button
                   type="button"
                   role="switch"
@@ -230,15 +240,14 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
                     })
                   }
                   className={[
-                    "sketch-box relative h-7 w-12 shrink-0",
-                    hasDate ? "bg-ink" : "bg-transparent",
+                    "relative flex h-8 w-[52px] shrink-0 items-center rounded-full p-[3px] transition-colors duration-200",
+                    hasDate ? "justify-end bg-iris" : "justify-start bg-ink/15",
                   ].join(" ")}
                 >
-                  <span
-                    className={[
-                      "absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full transition-[left]",
-                      hasDate ? "left-6 bg-paper" : "left-1 bg-ink-soft",
-                    ].join(" ")}
+                  <motion.span
+                    layout
+                    transition={{ type: "spring", stiffness: 600, damping: 34 }}
+                    className="h-[26px] w-[26px] rounded-full bg-surface shadow-[0_1px_3px_rgba(0,0,0,0.25)]"
                   />
                 </button>
               </div>
@@ -251,7 +260,7 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
                   className={INPUT_CLASS}
                 />
               ) : (
-                <span className="text-xs text-ink-faint">
+                <span className="text-[12px] text-ink-faint">
                   &quot;Zamanı belirsiz&quot; olarak eklenir, soru işaretinden sonra atarsın.
                 </span>
               )}
@@ -259,18 +268,22 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
           )}
 
           {isPayment && (
-            <div className="flex flex-col gap-1 text-sm text-ink-soft">
-              Önem
+            <div className="flex flex-col gap-1.5">
+              <span className={FIELD_LABEL_CLASS}>Önem</span>
               <ImportanceSelector value={importance} onChange={setImportance} />
             </div>
           )}
 
-          <button
+            </motion.div>
+          </AnimatePresence>
+
+          <motion.button
             type="submit"
-            className="sketch-box sketch-rotate-r mt-2 min-h-11 bg-ink font-hand text-xl text-paper active:bg-pencil"
+            whileTap={{ scale: 0.97 }}
+            className="mt-2 min-h-[52px] rounded-full bg-ink text-[16px] font-semibold text-paper"
           >
             Ekle
-          </button>
+          </motion.button>
         </form>
     </Sheet>
   );

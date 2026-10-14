@@ -13,6 +13,10 @@ export function getSystemTheme(): Theme {
 
 export function applyTheme(theme: Theme): void {
   document.documentElement.dataset.theme = theme;
+  // Keep the browser/status bar tint in step with the in-app toggle, not
+  // just the OS preference the static <meta> tags describe.
+  const color = theme === "dark" ? "#11100e" : "#efebe2";
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", color));
 }
 
 export function storeTheme(theme: Theme): void {
