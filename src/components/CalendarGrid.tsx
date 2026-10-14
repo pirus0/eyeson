@@ -102,7 +102,7 @@ const DayCell = memo(function DayCell({
   const frameClass = `pointer-events-none absolute inset-0 ${isRed ? "text-iris" : "text-ink"}`;
   const frame = (
     <EyeOutlineIcon
-      className="h-full w-full scale-[1.2]"
+      className="h-full w-full scale-[1.1]"
       variant={urgentPending ? "urgent" : "plain"}
       gap={hasEye}
     />
@@ -120,12 +120,12 @@ const DayCell = memo(function DayCell({
       <span className="relative flex h-11 w-11 items-center justify-center">
         {hasUrgent &&
           (urgentPending ? (
-            <EyeUrgentIcon className="pointer-events-none absolute inset-0 h-full w-full scale-[1.2] text-iris" />
+            <EyeUrgentIcon className="pointer-events-none absolute inset-0 h-full w-full scale-[1.1] text-iris" />
           ) : (
             <EyeUrgentDoneIcon className="pointer-events-none absolute inset-x-0 bottom-1.5 mx-auto h-3 w-full scale-110 text-ink-faint/50" />
           ))}
         {mediumPending && (
-          <EyeMediumIcon className="pointer-events-none absolute inset-0 h-full w-full scale-[1.2] text-ink" />
+          <EyeMediumIcon className="pointer-events-none absolute inset-0 h-full w-full scale-[1.1] text-ink" />
         )}
         {isSelected &&
           (sharedPill ? (
@@ -143,7 +143,11 @@ const DayCell = memo(function DayCell({
           <span className="absolute inset-0 rounded-full ring-[1.5px] ring-iris/70 ring-inset" />
         )}
         <span
-          className={`tabular relative text-[15px] transition-colors duration-200 ${numberColor} ${
+          className={`tabular relative transition-colors duration-200 ${
+            // The lashed eye's almond is smaller than the plain one, so its
+            // number steps down to stay clear of the selection lens ring.
+            urgentPending ? "text-[13px]" : "text-[15px]"
+          } ${numberColor} ${
             isSelected || isToday || hasEye ? "font-semibold" : "font-medium"
           }`}
         >

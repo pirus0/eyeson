@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 type IconProps = { className?: string };
 
 const base = {
@@ -150,30 +152,37 @@ const ALMOND = "s178.78-216.49,371.45,0c0,0-161.43,232.64-371.45,0Z";
 
 /** Selected-day marker: the importance eyes' own almond, outlined. It uses
  * the same viewBox as the eye it frames ("urgent" = EyeUrgentIcon's lashed
- * box, "plain" = EyeMediumIcon's), so at the same scale class the line sits
- * exactly on that eye's edge. With `gap`, a surface-coloured band is drawn
- * first so the frame reads as a lens ring around the filled eye. */
+ * box, "plain" = EyeMediumIcon's), so at the same scale class it lines up
+ * exactly with that eye. Every stroke is clipped to the almond, so the frame
+ * never reaches past the eye's edge into a neighbouring day. With `gap`, a
+ * surface-coloured band is cut just inside the edge, turning the filled eye
+ * into a lens: rim, thin gap, then the eye. */
 export function EyeOutlineIcon({
   className,
   variant = "plain",
   gap = false,
 }: IconProps & { variant?: "urgent" | "plain"; gap?: boolean }) {
+  const clipId = useId();
   const urgent = variant === "urgent";
   const d = urgent ? `M30.57,179.01${ALMOND}` : `M0,96.22${ALMOND}`;
-  const stroke = { vectorEffect: "non-scaling-stroke", strokeLinejoin: "round", fill: "none" } as const;
+  const stroke = {
+    vectorEffect: "non-scaling-stroke",
+    strokeLinejoin: "round",
+    fill: "none",
+    clipPath: `url(#${clipId})`,
+  } as const;
   return (
-    <svg
-      viewBox={urgent ? "0 0 433.36 365.2" : "0 0 371.45 199.61"}
-      className={className}
-      overflow="visible"
-    >
+    <svg viewBox={urgent ? "0 0 433.36 365.2" : "0 0 371.45 199.61"} className={className}>
+      <clipPath id={clipId}>
+        <path d={d} />
+      </clipPath>
       {gap ? (
         <>
-          <path d={d} {...stroke} stroke="currentColor" strokeWidth={8} />
-          <path d={d} {...stroke} stroke="var(--surface)" strokeWidth={3.5} />
+          <path d={d} {...stroke} stroke="var(--surface)" strokeWidth={6.5} />
+          <path d={d} {...stroke} stroke="currentColor" strokeWidth={3.75} />
         </>
       ) : (
-        <path d={d} {...stroke} stroke="currentColor" strokeWidth={2.25} />
+        <path d={d} {...stroke} stroke="currentColor" strokeWidth={4.5} />
       )}
     </svg>
   );
