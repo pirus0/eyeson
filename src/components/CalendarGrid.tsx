@@ -96,10 +96,12 @@ const DayCell = memo(function DayCell({
           : "text-ink";
 
   // Selection is an eye outline, the same almond as the importance eyes.
+  // Red only on a high-importance eye; every other day (medium, or one that
+  // just carries overdue items) gets the ink frame.
   // On an eye day it sits exactly on that eye's edge with a thin gap, like
   // a lens ring; on a plain day it is where an eye would be. Same layoutId
   // either way, so the selection still slides between cells.
-  const frameClass = `pointer-events-none absolute inset-0 ${isRed ? "text-iris" : "text-ink"}`;
+  const frameClass = `pointer-events-none absolute inset-0 ${urgentPending ? "text-iris" : "text-ink"}`;
   const frame = (
     <EyeOutlineIcon
       className="h-full w-full scale-[1.1]"
