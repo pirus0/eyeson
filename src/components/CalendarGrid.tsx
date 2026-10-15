@@ -142,7 +142,8 @@ const DayCell = memo(function DayCell({
             <span className={frameClass}>{frame}</span>
           ))}
         {!isSelected && isToday && !hasEye && (
-          <span className="absolute inset-0 rounded-full ring-[1.5px] ring-iris/70 ring-inset" />
+          // Today is the same full almond as the selection frame, in red.
+          <EyeOutlineIcon className="pointer-events-none absolute inset-0 h-full w-full scale-[1.1] text-iris/70" />
         )}
         <span
           className={`tabular relative transition-colors duration-200 ${
