@@ -7,6 +7,7 @@ import { CloudSyncIcon } from "./Icons";
 import { INPUT_CLASS } from "@/lib/itemMeta";
 import { IconButton } from "./IconButton";
 import { Sheet } from "./Sheet";
+import { shareBackup } from "@/lib/backup";
 
 type Props = {
   open: boolean;
@@ -14,8 +15,9 @@ type Props = {
 };
 
 export function SettingsSheet({ open, onOpenChange }: Props) {
-  const { syncEnabled, syncState, syncError, lastSyncedAt, configureSync, disableSync } =
+  const { data, syncEnabled, syncState, syncError, lastSyncedAt, configureSync, disableSync } =
     useStore();
+  const [shared, setShared] = useState(false);
   const [tokenInput, setTokenInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -46,6 +48,22 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
       </IconButton>
 
       <Sheet open={open} onClose={() => onOpenChange(false)} title="Yedekleme">
+            <div className="flex flex-col gap-2 pb-6">
+              <p className="text-[14px] leading-relaxed text-ink-soft">
+                Tüm kayıtlarını tek bir dosya olarak kendine gönder (WhatsApp, Notlar,
+                Dosyalar…). Telefon değişirse ya da uygulama silinirse bu dosyadan geri
+                yüklenir.
+              </p>
+              <button
+                type="button"
+                onClick={async () => setShared(await shareBackup(data))}
+                className="press min-h-12 rounded-full bg-ink text-[15px] font-semibold text-paper"
+              >
+                Yedeği paylaş
+              </button>
+              {shared && <p className="text-[12px] text-ink-faint">Yedek dosyası hazırlandı.</p>}
+            </div>
+
             <p className="pb-4 text-[14px] leading-relaxed text-ink-soft">
               Verilerin bu cihazda saklanır. İstersen private bir GitHub Gist&apos;e de
               yedeklenmesini sağlayabilirsin — uygulamayı silip yeniden kurarsan sadece
