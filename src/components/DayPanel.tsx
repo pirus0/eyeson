@@ -204,6 +204,10 @@ function OccurrenceRow({
   // as a thin line along the row's rounded corner.
   const deleteWidth = useTransform(x, (v) => (v >= 1 ? v : 0));
   const reassignWidth = useTransform(x, (v) => (v <= -1 ? -v : 0));
+  // The strips' 3px padding would keep a closed one 6px wide, so a closed
+  // strip is taken out of the layout entirely.
+  const deleteDisplay = useTransform(deleteWidth, (w) => (w > 0 ? "flex" : "none"));
+  const reassignDisplay = useTransform(reassignWidth, (w) => (w > 0 ? "flex" : "none"));
   const draggedRef = useRef(false);
 
   useEffect(() => {
@@ -259,10 +263,13 @@ function OccurrenceRow({
           onClick={() => onRemove(item.kind, item.id)}
           aria-label="Sil"
           tabIndex={swipe === "delete" ? 0 : -1}
-          style={{ width: deleteWidth }}
-          className="absolute inset-y-0 left-0 flex items-center justify-center overflow-hidden bg-iris-soft text-iris"
+          style={{ width: deleteWidth, display: deleteDisplay }}
+          className="absolute inset-y-0 left-0 flex overflow-hidden p-[3px] text-iris"
         >
-          <TrashIcon className="h-[22px] w-[22px] shrink-0" />
+          {/* Inset by 3px so the row's own background frames the strip. */}
+          <span className="flex flex-1 items-center justify-center rounded-[13px] bg-iris-soft">
+            <TrashIcon className="h-[22px] w-[22px] shrink-0" />
+          </span>
         </motion.button>
         {canReassign && (
           <motion.button
@@ -273,10 +280,12 @@ function OccurrenceRow({
             }}
             aria-label="Yeniden ata"
             tabIndex={swipe === "reassign" ? 0 : -1}
-            style={{ width: reassignWidth }}
-            className="absolute inset-y-0 right-0 flex items-center justify-center overflow-hidden bg-amber-soft text-amber"
+            style={{ width: reassignWidth, display: reassignDisplay }}
+            className="absolute inset-y-0 right-0 flex overflow-hidden p-[3px] text-amber"
           >
-            <ReassignIcon className="h-[22px] w-[22px] shrink-0" />
+            <span className="flex flex-1 items-center justify-center rounded-[13px] bg-amber-soft">
+              <ReassignIcon className="h-[22px] w-[22px] shrink-0" />
+            </span>
           </motion.button>
         )}
         <motion.div
