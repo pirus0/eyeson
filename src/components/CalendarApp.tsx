@@ -12,6 +12,9 @@ import { DayPanel } from "./DayPanel";
 import { AddItemSheet } from "./AddItemSheet";
 import { BellMenu } from "./BellMenu";
 import { SettingsSheet } from "./SettingsSheet";
+import { ImportFromLink } from "./ImportFromLink";
+import { EmptyImportCard } from "./EmptyImportCard";
+import { countItems } from "@/lib/backup";
 import { UnscheduledButton, UnscheduledPanel } from "./UnscheduledSheet";
 import { BrandEye } from "./Icons";
 
@@ -185,6 +188,8 @@ export function CalendarApp() {
         </div>
       </header>
 
+      {countItems(data) === 0 && <EmptyImportCard />}
+
       <CalendarGrid
         monthAnchor={monthAnchor}
         direction={direction}
@@ -247,6 +252,8 @@ export function CalendarApp() {
           />
         )}
       </AnimatePresence>
+
+      <ImportFromLink />
     </div>
   );
 }

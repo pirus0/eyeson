@@ -1,7 +1,6 @@
 import type { StoreData } from "./types";
 
 const STORAGE_KEY = "eyeson-data-v1";
-const UPDATED_AT_KEY = "eyeson-data-updated-at";
 
 export function emptyData(): StoreData {
   return {
@@ -17,6 +16,9 @@ export function emptyData(): StoreData {
 
 export function loadData(): StoreData {
   if (typeof window === "undefined") return emptyData();
+  // Leftovers from the old GitHub Gist backup, which needed a token.
+  window.localStorage.removeItem("eyeson-gh-token");
+  window.localStorage.removeItem("eyeson-gist-id");
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyData();
@@ -38,12 +40,4 @@ export function loadData(): StoreData {
 export function saveData(data: StoreData): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  window.localStorage.setItem(UPDATED_AT_KEY, String(Date.now()));
-}
-
-/** Timestamp of the last local write, used to decide whether a pulled Gist
- * backup is actually newer than what's already on this device. */
-export function getLocalUpdatedAt(): number {
-  if (typeof window === "undefined") return 0;
-  return Number(window.localStorage.getItem(UPDATED_AT_KEY)) || 0;
 }
