@@ -2,8 +2,15 @@
 
 import type { Occurrence } from "@/lib/occurrences";
 import { creditCardCompanionDate, occurrenceAmount, occurrenceImportance } from "@/lib/occurrences";
-import { useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
+import {
+  AnimatePresence,
+  animate,
+  motion,
+  useMotionValue,
+  useTransform,
+  type PanInfo,
+} from "motion/react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import type { CompletionMap, Importance } from "@/lib/types";
@@ -59,9 +66,16 @@ function sortOccurrences(occs: Occurrence[], completions: CompletionMap): Occurr
   });
 }
 
+/** Which action strip a row has been swiped open to: "delete" sits on the
+ * left (row swiped right), "reassign" on the right (row swiped left). */
+type SwipeSide = "delete" | "reassign";
+type OpenSwipe = { key: string; side: SwipeSide } | null;
+
 type RowProps = {
   occ: Occurrence;
   overdue?: boolean;
+  swipe: SwipeSide | null;
+  onSwipeChange: (side: SwipeSide | null) => void;
   onToggleDone: (key: string, done: boolean) => void;
   onRemove: (kind: Occurrence["item"]["kind"], id: string) => void;
   /** Position in the list — staggers the entrance when a day opens. */
@@ -69,10 +83,13 @@ type RowProps = {
 };
 
 const ROW_SPRING = { type: "spring", stiffness: 500, damping: 40 } as const;
+const SNAP_SPRING = { type: "spring", stiffness: 520, damping: 42 } as const;
+/** Width of a revealed action strip; also the min touch target is well met. */
+const ACTION_WIDTH = 76;
 
-/** Inline "move to another day" form under an overdue one-off task —
- * payments can't be reassigned (their due date is fixed), recurring todos
- * come back on their own. */
+/** Inline "move to another day" form under a one-off task — payments can't
+ * be reassigned (their due date is fixed), recurring todos come back on
+ * their own. */
 function ReassignForm({
   id,
   initialImportance,
@@ -168,10 +185,44 @@ function CheckCircle({ done, onClick }: { done: boolean; onClick: () => void }) 
   );
 }
 
-function OccurrenceRow({ occ, overdue = false, onToggleDone, onRemove, index = 0 }: RowProps) {
+function OccurrenceRow({
+  occ,
+  overdue = false,
+  swipe,
+  onSwipeChange,
+  onToggleDone,
+  onRemove,
+  index = 0,
+}: RowProps) {
   const [reassigning, setReassigning] = useState(false);
   const { item } = occ;
-  const canReassign = overdue && item.kind === "oneOff";
+  const canReassign = item.kind === "oneOff";
+  const x = useMotionValue(0);
+  // The strips grow with the drag instead of sitting under the row, so
+  // nothing shows through the translucent overdue background at rest.
+  const deleteWidth = useTransform(x, (v) => Math.max(v, 0));
+  const reassignWidth = useTransform(x, (v) => Math.max(-v, 0));
+  const draggedRef = useRef(false);
+
+  useEffect(() => {
+    const target = swipe === "delete" ? ACTION_WIDTH : swipe === "reassign" ? -ACTION_WIDTH : 0;
+    const controls = animate(x, target, SNAP_SPRING);
+    return () => controls.stop();
+  }, [swipe, x]);
+
+  function handleDragEnd(_: unknown, info: PanInfo) {
+    const pos = x.get() + info.velocity.x * 0.1;
+    if (pos > ACTION_WIDTH / 2) onSwipeChange("delete");
+    else if (pos < -ACTION_WIDTH / 2 && canReassign) onSwipeChange("reassign");
+    else {
+      onSwipeChange(null);
+      animate(x, 0, SNAP_SPRING);
+    }
+    // Let the click that ends a drag pass by without ticking the row.
+    window.setTimeout(() => {
+      draggedRef.current = false;
+    }, 0);
+  }
   const isCreditCard = item.kind === "creditCard";
   const isStatementRow = isCreditCard && occ.role === "statement";
   const amount = occurrenceAmount(occ);
@@ -199,86 +250,111 @@ function OccurrenceRow({ occ, overdue = false, onToggleDone, onRemove, index = 0
       transition={ROW_SPRING}
       className="relative"
     >
-      <div className="flex items-center gap-3 rounded-2xl px-3 py-2.5">
-        {isStatementRow ? (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden>
-            <span className="h-1.5 w-1.5 rounded-full bg-ink-faint" />
-          </span>
-        ) : (
-          <CheckCircle done={occ.done} onClick={() => onToggleDone(occ.key, !occ.done)} />
-        )}
-
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            {importance && (
-              <span
-                className={`h-2 w-2 shrink-0 rounded-full ${IMPORTANCE_DOT_CLASS[importance]} ${
-                  occ.done ? "opacity-40" : ""
-                }`}
-                title="Önem"
-              />
-            )}
-            <p
-              className={[
-                "relative text-[15px] leading-snug font-medium transition-colors duration-300",
-                occ.done ? "text-ink-faint" : overdue ? "text-iris" : "text-ink",
-              ].join(" ")}
-            >
-              {itemTitle(item)}
-              {isStatementRow && " · kesim"}
-              <motion.span
-                aria-hidden
-                className="absolute top-1/2 left-0 h-[1.5px] w-full origin-left bg-ink-faint"
-                initial={false}
-                animate={{ scaleX: occ.done ? 1 : 0 }}
-                transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}
-              />
-            </p>
-          </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-ink-faint">
-            <span className="rounded-full bg-ink/5 px-1.5 py-px text-[10.5px] font-semibold tracking-wide uppercase">
-              {KIND_SHORT[item.kind]}
-            </span>
-            {meta.map((m) => (
-              <span key={m as string} className={overdue ? "text-iris/80" : undefined}>
-                {m}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {amount !== undefined && (
-          <span
-            className={`tabular shrink-0 text-[14px] font-semibold ${
-              occ.done ? "text-ink-faint line-through" : overdue ? "text-iris" : "text-ink"
-            }`}
-          >
-            {formatAmount(amount)}
-          </span>
-        )}
-
-        {canReassign && (
-          <button
-            type="button"
-            onClick={() => setReassigning((v) => !v)}
-            aria-label="Yeniden ata"
-            aria-expanded={reassigning}
-            className={`press -mr-1 flex h-11 w-9 shrink-0 items-center justify-center rounded-full text-iris ${
-              reassigning ? "bg-iris-soft" : ""
-            }`}
-          >
-            <ReassignIcon className="h-4 w-4" />
-          </button>
-        )}
-
-        <button
+      <div className="relative overflow-hidden rounded-2xl">
+        <motion.button
           type="button"
           onClick={() => onRemove(item.kind, item.id)}
           aria-label="Sil"
-          className="press -mr-2 flex h-11 w-9 shrink-0 items-center justify-center rounded-full text-ink-faint/70 hover:text-ink-soft active:text-iris"
+          tabIndex={swipe === "delete" ? 0 : -1}
+          style={{ width: deleteWidth }}
+          className="absolute inset-y-0 left-0 flex items-center justify-center overflow-hidden bg-iris text-on-iris"
         >
-          <TrashIcon className="h-[17px] w-[17px]" />
-        </button>
+          <TrashIcon className="h-[22px] w-[22px] shrink-0" />
+        </motion.button>
+        {canReassign && (
+          <motion.button
+            type="button"
+            onClick={() => {
+              onSwipeChange(null);
+              setReassigning(true);
+            }}
+            aria-label="Yeniden ata"
+            tabIndex={swipe === "reassign" ? 0 : -1}
+            style={{ width: reassignWidth }}
+            className="absolute inset-y-0 right-0 flex items-center justify-center overflow-hidden bg-amber text-on-iris"
+          >
+            <ReassignIcon className="h-[22px] w-[22px] shrink-0" />
+          </motion.button>
+        )}
+        <motion.div
+          drag="x"
+          dragDirectionLock
+          dragConstraints={{ left: canReassign ? -ACTION_WIDTH : 0, right: ACTION_WIDTH }}
+          dragElastic={0.12}
+          dragMomentum={false}
+          style={{ x }}
+          onDragStart={() => {
+            draggedRef.current = true;
+          }}
+          onDragEnd={handleDragEnd}
+          onClickCapture={(e) => {
+            // While open, a tap on the row just closes it.
+            if (draggedRef.current || swipe) {
+              e.stopPropagation();
+              e.preventDefault();
+              if (swipe) onSwipeChange(null);
+            }
+          }}
+          className="relative flex touch-pan-y items-center gap-3 px-3 py-2.5"
+        >
+          {isStatementRow ? (
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden>
+              <span className="h-1.5 w-1.5 rounded-full bg-ink-faint" />
+            </span>
+          ) : (
+            <CheckCircle done={occ.done} onClick={() => onToggleDone(occ.key, !occ.done)} />
+          )}
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              {importance && (
+                <span
+                  className={`h-2 w-2 shrink-0 rounded-full ${IMPORTANCE_DOT_CLASS[importance]} ${
+                    occ.done ? "opacity-40" : ""
+                  }`}
+                  title="Önem"
+                />
+              )}
+              <p
+                className={[
+                  "relative text-[15px] leading-snug font-medium transition-colors duration-300",
+                  occ.done ? "text-ink-faint" : overdue ? "text-iris" : "text-ink",
+                ].join(" ")}
+              >
+                {itemTitle(item)}
+                {isStatementRow && " · kesim"}
+                <motion.span
+                  aria-hidden
+                  className="absolute top-1/2 left-0 h-[1.5px] w-full origin-left bg-ink-faint"
+                  initial={false}
+                  animate={{ scaleX: occ.done ? 1 : 0 }}
+                  transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}
+                />
+              </p>
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-ink-faint">
+              <span className="rounded-full bg-ink/5 px-1.5 py-px text-[10.5px] font-semibold tracking-wide uppercase">
+                {KIND_SHORT[item.kind]}
+              </span>
+              {meta.map((m) => (
+                <span key={m as string} className={overdue ? "text-iris/80" : undefined}>
+                  {m}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {amount !== undefined && (
+            <span
+              className={`tabular shrink-0 text-[14px] font-semibold ${
+                occ.done ? "text-ink-faint line-through" : overdue ? "text-iris" : "text-ink"
+              }`}
+            >
+              {formatAmount(amount)}
+            </span>
+          )}
+
+        </motion.div>
       </div>
       <AnimatePresence initial={false}>
         {reassigning && item.kind === "oneOff" && (
@@ -296,6 +372,11 @@ function OccurrenceRow({ occ, overdue = false, onToggleDone, onRemove, index = 0
 
 export function DayPanel({ day, occurrences, onAdd }: Props) {
   const { setDone, removeItem, data } = useStore();
+  const [openSwipe, setOpenSwipe] = useState<OpenSwipe>(null);
+  const swipeProps = (key: string) => ({
+    swipe: openSwipe?.key === key ? openSwipe.side : null,
+    onSwipeChange: (side: SwipeSide | null) => setOpenSwipe(side ? { key, side } : null),
+  });
 
   const overdue = occurrences.filter((occ) => occ.carriedOverdue);
   const own = occurrences.filter((occ) => !occ.carriedOverdue);
@@ -368,6 +449,7 @@ export function DayPanel({ day, occurrences, onAdd }: Props) {
                       key={occ.key}
                       occ={occ}
                       overdue
+                      {...swipeProps(occ.key)}
                       onToggleDone={setDone}
                       onRemove={removeItem}
                     />
@@ -399,6 +481,7 @@ export function DayPanel({ day, occurrences, onAdd }: Props) {
                 key={occ.key}
                 occ={occ}
                 index={i}
+                {...swipeProps(occ.key)}
                 onToggleDone={setDone}
                 onRemove={removeItem}
               />
