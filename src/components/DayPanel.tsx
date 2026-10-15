@@ -200,13 +200,16 @@ function OccurrenceRow({
   const x = useMotionValue(0);
   // The strips grow with the drag instead of sitting under the row, so
   // nothing shows through the translucent overdue background at rest.
-  const deleteWidth = useTransform(x, (v) => Math.max(v, 0));
-  const reassignWidth = useTransform(x, (v) => Math.max(-v, 0));
+  // Below 1px a strip is hidden outright: a sub-pixel sliver otherwise shows
+  // as a thin line along the row's rounded corner.
+  const deleteWidth = useTransform(x, (v) => (v >= 1 ? v : 0));
+  const reassignWidth = useTransform(x, (v) => (v <= -1 ? -v : 0));
   const draggedRef = useRef(false);
 
   useEffect(() => {
     const target = swipe === "delete" ? ACTION_WIDTH : swipe === "reassign" ? -ACTION_WIDTH : 0;
-    const controls = animate(x, target, SNAP_SPRING);
+    // Springs come to rest within ~0.5px of the target; land exactly on it.
+    const controls = animate(x, target, { ...SNAP_SPRING, onComplete: () => x.set(target) });
     return () => controls.stop();
   }, [swipe, x]);
 
@@ -216,7 +219,7 @@ function OccurrenceRow({
     else if (pos < -ACTION_WIDTH / 2 && canReassign) onSwipeChange("reassign");
     else {
       onSwipeChange(null);
-      animate(x, 0, SNAP_SPRING);
+      animate(x, 0, { ...SNAP_SPRING, onComplete: () => x.set(0) });
     }
     // Let the click that ends a drag pass by without ticking the row.
     window.setTimeout(() => {
@@ -257,7 +260,7 @@ function OccurrenceRow({
           aria-label="Sil"
           tabIndex={swipe === "delete" ? 0 : -1}
           style={{ width: deleteWidth }}
-          className="absolute inset-y-0 left-0 flex items-center justify-center overflow-hidden bg-iris text-on-iris"
+          className="absolute inset-y-0 left-0 flex items-center justify-center overflow-hidden bg-iris-soft text-iris"
         >
           <TrashIcon className="h-[22px] w-[22px] shrink-0" />
         </motion.button>
@@ -271,7 +274,7 @@ function OccurrenceRow({
             aria-label="Yeniden ata"
             tabIndex={swipe === "reassign" ? 0 : -1}
             style={{ width: reassignWidth }}
-            className="absolute inset-y-0 right-0 flex items-center justify-center overflow-hidden bg-amber text-on-iris"
+            className="absolute inset-y-0 right-0 flex items-center justify-center overflow-hidden bg-amber-soft text-amber"
           >
             <ReassignIcon className="h-[22px] w-[22px] shrink-0" />
           </motion.button>
