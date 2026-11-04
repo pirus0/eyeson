@@ -82,6 +82,28 @@ button {
 
 /* Every pressable thing sinks a little under the finger — the one piece of
    feedback shared by all buttons, so it lives here instead of on each one. */
+/* Struck-through title: a slightly rising line drawn per text line (box
+   decoration is cloned onto each wrapped fragment), just below the middle. */
+.strike {
+  --strike-w: 0.8px;
+  background-image: linear-gradient(
+    to bottom right,
+    transparent calc(50% - var(--strike-w)),
+    var(--ink-faint) calc(50% - var(--strike-w)),
+    var(--ink-faint) calc(50% + var(--strike-w)),
+    transparent calc(50% + var(--strike-w))
+  );
+  background-repeat: no-repeat;
+  background-position: 0 66%;
+  background-size: 0% 0.3em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-size 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.strike-on {
+  background-size: 100% 0.3em;
+}
+
 .press {
   transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 160ms ease,
     color 160ms ease, opacity 160ms ease;

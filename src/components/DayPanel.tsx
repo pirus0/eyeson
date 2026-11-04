@@ -13,7 +13,7 @@ import {
 } from "motion/react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
-import type { CompletionMap, Importance } from "@/lib/types";
+import type { AnyItem, CompletionMap, Importance } from "@/lib/types";
 import { formatShort, todayKey } from "@/lib/date";
 import {
   FIELD_LABEL_CLASS,
@@ -23,7 +23,7 @@ import {
   itemTitle,
   KIND_SHORT,
 } from "@/lib/itemMeta";
-import { EyeMediumIcon, PlusIcon, ReassignIcon, TrashIcon } from "./Icons";
+import { CheckIcon, EyeMediumIcon, PlusIcon, ReassignIcon, TrashIcon } from "./Icons";
 import { ImportanceSelector } from "./ImportanceSelector";
 import { useStore } from "@/lib/store";
 
@@ -31,6 +31,7 @@ type Props = {
   day: Date;
   occurrences: Occurrence[];
   onAdd: () => void;
+  onEdit: (item: AnyItem) => void;
 };
 
 const IMPORTANCE_RANK: Record<string, number> = {
@@ -78,6 +79,10 @@ type RowProps = {
   onSwipeChange: (side: SwipeSide | null) => void;
   onToggleDone: (key: string, done: boolean) => void;
   onRemove: (kind: Occurrence["item"]["kind"], id: string) => void;
+  /** Whether this row's long-press "Düzenle" bubble is showing. */
+  editOpen: boolean;
+  onEditOpenChange: (open: boolean) => void;
+  onEdit: (item: AnyItem) => void;
   /** Position in the list — staggers the entrance when a day opens. */
   index?: number;
 };
@@ -86,6 +91,63 @@ const ROW_SPRING = { type: "spring", stiffness: 500, damping: 40 } as const;
 const SNAP_SPRING = { type: "spring", stiffness: 520, damping: 42 } as const;
 /** Width of a revealed action strip; also the min touch target is well met. */
 const ACTION_WIDTH = 76;
+const LONG_PRESS_MS = 480;
+/** Finger travel that turns a press into a drag/scroll instead. */
+const LONG_PRESS_SLOP = 8;
+
+/** Under a credit card's statement row once its day has come: type what the
+ * statement came to and tick — the due row of the same cycle then shows it.
+ * Ticked, it shows the amount; tapping the tick again lets you correct it. */
+function StatementAmount({ occ }: { occ: Occurrence }) {
+  const { setDone, data } = useStore();
+  const saved = data.completions[occ.key]?.amount;
+  const [value, setValue] = useState(saved !== undefined ? String(saved) : "");
+  const n = Number(value.replace(",", "."));
+  const valid = value.trim() !== "" && Number.isFinite(n) && n >= 0;
+
+  return (
+    <div className="flex items-center gap-2 px-3 pb-2.5 pl-[52px]">
+      {occ.done ? (
+        <span className="tabular flex min-h-11 flex-1 items-center text-[15px] font-semibold text-ink">
+          {formatAmount(occ.cardAmount)}
+        </span>
+      ) : (
+        <input
+          type="text"
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && valid) setDone(occ.key, true, n);
+          }}
+          placeholder="Tutar gir"
+          aria-label="Kesim tutarı"
+          className={`${INPUT_CLASS} !min-h-11 flex-1`}
+        />
+      )}
+      <button
+        type="button"
+        onClick={() => {
+          if (occ.done) setDone(occ.key, false);
+          else if (valid) setDone(occ.key, true, n);
+        }}
+        disabled={!occ.done && !valid}
+        aria-label={occ.done ? "Tutarı düzelt" : "Tutarı kaydet"}
+        aria-pressed={occ.done}
+        className={[
+          "press flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-[1.5px] transition-colors duration-200",
+          occ.done
+            ? "border-ink bg-ink text-paper"
+            : valid
+              ? "border-ink text-ink"
+              : "border-line text-ink-faint/50",
+        ].join(" ")}
+      >
+        <CheckIcon className="h-5 w-5" />
+      </button>
+    </div>
+  );
+}
 
 /** Inline "move to another day" form under a one-off task — payments can't
  * be reassigned (their due date is fixed), recurring todos come back on
@@ -192,9 +254,33 @@ function OccurrenceRow({
   onSwipeChange,
   onToggleDone,
   onRemove,
+  editOpen,
+  onEditOpenChange,
+  onEdit,
   index = 0,
 }: RowProps) {
   const [reassigning, setReassigning] = useState(false);
+  const pressRef = useRef<{ timer: number; x: number; y: number } | null>(null);
+  const longPressedRef = useRef(false);
+  const bubbleRef = useRef<HTMLDivElement>(null);
+
+  function cancelPress() {
+    if (pressRef.current) window.clearTimeout(pressRef.current.timer);
+    pressRef.current = null;
+  }
+
+  // Any touch outside the bubble closes it.
+  useEffect(() => {
+    if (!editOpen) return;
+    const close = (e: PointerEvent) => {
+      if (bubbleRef.current?.contains(e.target as Node)) return;
+      onEditOpenChange(false);
+    };
+    document.addEventListener("pointerdown", close, true);
+    return () => document.removeEventListener("pointerdown", close, true);
+  }, [editOpen, onEditOpenChange]);
+
+  useEffect(() => cancelPress, []);
   const { item } = occ;
   const canReassign = item.kind === "oneOff";
   const x = useMotionValue(0);
@@ -297,9 +383,40 @@ function OccurrenceRow({
           style={{ x }}
           onDragStart={() => {
             draggedRef.current = true;
+            cancelPress();
           }}
+          onPointerDown={(e) => {
+            longPressedRef.current = false;
+            cancelPress();
+            const { clientX: x0, clientY: y0 } = e;
+            pressRef.current = {
+              x: x0,
+              y: y0,
+              timer: window.setTimeout(() => {
+                pressRef.current = null;
+                longPressedRef.current = true;
+                onSwipeChange(null);
+                onEditOpenChange(true);
+                navigator.vibrate?.(10);
+              }, LONG_PRESS_MS),
+            };
+          }}
+          onPointerMove={(e) => {
+            const p = pressRef.current;
+            if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) > LONG_PRESS_SLOP) cancelPress();
+          }}
+          onPointerUp={cancelPress}
+          onPointerCancel={cancelPress}
+          onContextMenu={(e) => e.preventDefault()}
           onDragEnd={handleDragEnd}
           onClickCapture={(e) => {
+            // The click that ends a long press only opens the bubble.
+            if (longPressedRef.current) {
+              longPressedRef.current = false;
+              e.stopPropagation();
+              e.preventDefault();
+              return;
+            }
             // While open, a tap on the row just closes it.
             if (draggedRef.current || swipe) {
               e.stopPropagation();
@@ -307,7 +424,7 @@ function OccurrenceRow({
               if (swipe) onSwipeChange(null);
             }
           }}
-          className="relative flex touch-pan-y items-center gap-3 px-3 py-2.5"
+          className="relative flex touch-pan-y items-center gap-3 px-3 py-2.5 select-none [-webkit-touch-callout:none]"
         >
           {isStatementRow ? (
             <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden>
@@ -333,15 +450,10 @@ function OccurrenceRow({
                   occ.done ? "text-ink-faint" : overdue ? "text-iris" : "text-ink",
                 ].join(" ")}
               >
-                {itemTitle(item)}
-                {isStatementRow && " · kesim"}
-                <motion.span
-                  aria-hidden
-                  className="absolute top-1/2 left-0 h-[1.5px] w-full origin-left bg-ink-faint"
-                  initial={false}
-                  animate={{ scaleX: occ.done ? 1 : 0 }}
-                  transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}
-                />
+                <span className={`strike ${occ.done && !isStatementRow ? "strike-on" : ""}`}>
+                  {itemTitle(item)}
+                  {isStatementRow && " · kesim"}
+                </span>
               </p>
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-ink-faint">
@@ -356,7 +468,7 @@ function OccurrenceRow({
             </div>
           </div>
 
-          {amount !== undefined && (
+          {amount !== undefined && !isStatementRow && (
             <span
               className={`tabular shrink-0 text-[14px] font-semibold ${
                 occ.done ? "text-ink-faint line-through" : overdue ? "text-iris" : "text-ink"
@@ -368,6 +480,30 @@ function OccurrenceRow({
 
         </motion.div>
       </div>
+      {isStatementRow && occ.dateKey <= todayKey() && <StatementAmount occ={occ} />}
+      <AnimatePresence>
+        {editOpen && (
+          <motion.div
+            ref={bubbleRef}
+            initial={{ opacity: 0, y: 6, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.96, transition: { duration: 0.12 } }}
+            transition={{ type: "spring", stiffness: 600, damping: 36 }}
+            className="absolute bottom-full left-1/2 z-20 -mb-1 -translate-x-1/2"
+          >
+            <button
+              type="button"
+              onClick={() => {
+                onEditOpenChange(false);
+                onEdit(item);
+              }}
+              className="press min-h-11 rounded-full bg-ink px-5 text-[15px] font-semibold text-paper shadow-[0_10px_24px_-10px_rgba(0,0,0,0.5)]"
+            >
+              Düzenle
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <AnimatePresence initial={false}>
         {reassigning && item.kind === "oneOff" && (
           <ReassignForm
@@ -382,12 +518,17 @@ function OccurrenceRow({
   );
 }
 
-export function DayPanel({ day, occurrences, onAdd }: Props) {
+export function DayPanel({ day, occurrences, onAdd, onEdit }: Props) {
   const { setDone, removeItem, data } = useStore();
   const [openSwipe, setOpenSwipe] = useState<OpenSwipe>(null);
+  const [editKey, setEditKey] = useState<string | null>(null);
   const swipeProps = (key: string) => ({
     swipe: openSwipe?.key === key ? openSwipe.side : null,
     onSwipeChange: (side: SwipeSide | null) => setOpenSwipe(side ? { key, side } : null),
+    editOpen: editKey === key,
+    onEditOpenChange: (open: boolean) =>
+      setEditKey((k) => (open ? key : k === key ? null : k)),
+    onEdit,
   });
 
   const overdue = occurrences.filter((occ) => occ.carriedOverdue);
@@ -444,10 +585,11 @@ export function DayPanel({ day, occurrences, onAdd }: Props) {
         {overdue.length > 0 && (
           <motion.div
             key="overdue"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
+            initial={{ opacity: 0, height: 0, overflow: "hidden" }}
+            // Clipping is only for the height animation — once open, the
+            // first row's "Düzenle" bubble may stick out above the box.
+            animate={{ opacity: 1, height: "auto", transitionEnd: { overflow: "visible" } }}
+            exit={{ opacity: 0, height: 0, overflow: "hidden" }}
           >
             <div className="mx-1 mb-2 rounded-[22px] bg-iris-soft pt-2.5 pb-1">
               <p className="flex items-center gap-1.5 px-3 pb-0.5 text-[11px] font-semibold tracking-[0.08em] text-iris uppercase">

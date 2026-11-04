@@ -32,6 +32,8 @@ export type Occurrence = {
   /** Set when this occurrence is being surfaced on a later day than its own
    * date because it was never marked done — see computeOverdue. */
   carriedOverdue?: boolean;
+  /** Credit cards only: the amount entered for this cycle's statement. */
+  cardAmount?: number;
 };
 
 function isPaymentDay(item: AnyItem, date: Date): boolean {
@@ -151,17 +153,24 @@ export function occurrencesForRange(
         // their own completion keys so marking one doesn't affect the other.
         if (isCreditCardDay(item, item.statementDay, date)) {
           const key = completionKey(`${item.id}:statement`, dateKey);
+          const c = completions[key];
           result.push({
             key,
             dateKey,
             date,
             item,
-            done: completions[key]?.done ?? false,
+            done: c?.done ?? false,
             role: "statement",
+            cardAmount: c?.done ? c.amount : undefined,
           });
         }
         if (isCreditCardDay(item, item.dueDay, date)) {
           const key = completionKey(`${item.id}:due`, dateKey);
+          const statementKey = completionKey(
+            `${item.id}:statement`,
+            toKey(creditCardCompanionDate(item, date, "due"))
+          );
+          const s = completions[statementKey];
           result.push({
             key,
             dateKey,
@@ -169,6 +178,7 @@ export function occurrencesForRange(
             item,
             done: completions[key]?.done ?? false,
             role: "due",
+            cardAmount: s?.done ? s.amount : undefined,
           });
         }
         continue;
@@ -213,9 +223,18 @@ export function occurrenceImportance(occ: {
 
 /** The amount to show for an occurrence, if any — bills/installments/cards
  * carry one, everything else (todos, unassigned one-offs) doesn't. */
-export function occurrenceAmount(occ: { item: AnyItem }): number | undefined {
+export function occurrenceAmount(occ: {
+  item: AnyItem;
+  role?: Occurrence["role"];
+  cardAmount?: number;
+}): number | undefined {
   const { item } = occ;
-  if (item.kind === "bill" || item.kind === "installment" || item.kind === "creditCard") {
+  if (item.kind === "creditCard") {
+    if (occ.cardAmount !== undefined) return occ.cardAmount;
+    // The old fixed amount belongs on the due date only.
+    return occ.role === "due" ? item.amount : undefined;
+  }
+  if (item.kind === "bill" || item.kind === "installment") {
     return item.amount;
   }
   return undefined;

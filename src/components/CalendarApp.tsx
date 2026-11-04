@@ -17,6 +17,7 @@ import { EmptyImportCard } from "./EmptyImportCard";
 import { countItems } from "@/lib/backup";
 import { UnscheduledButton, UnscheduledPanel } from "./UnscheduledSheet";
 import { BrandEye } from "./Icons";
+import type { AnyItem } from "@/lib/types";
 
 /** A tap-tap within this window counts as a double-tap — more reliable than
  * the native `dblclick` event, which mobile Safari doesn't always fire
@@ -81,6 +82,7 @@ export function CalendarApp() {
   const [activeSheet, setActiveSheet] = useState<
     "settings" | "bell" | "add" | "unscheduled" | "add-unscheduled" | null
   >(null);
+  const [editing, setEditing] = useState<AnyItem | null>(null);
 
   // If the day rolls over while the app is open, follow along — but only
   // for whichever of these was still parked on the old "today"; a month or
@@ -234,6 +236,10 @@ export function CalendarApp() {
               day={selected}
               occurrences={selectedOccurrences}
               onAdd={() => setActiveSheet("add")}
+              onEdit={(item) => {
+                setActiveSheet(null);
+                setEditing(item);
+              }}
             />
           </motion.div>
         )}
@@ -249,6 +255,14 @@ export function CalendarApp() {
             defaultDate={selected}
             unscheduled
             onClose={() => setActiveSheet("unscheduled")}
+          />
+        )}
+        {editing && (
+          <AddItemSheet
+            key={`edit-${editing.id}`}
+            defaultDate={selected}
+            editing={editing}
+            onClose={() => setEditing(null)}
           />
         )}
       </AnimatePresence>

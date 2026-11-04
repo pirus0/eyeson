@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { getDate, mondayIndex, toKey } from "@/lib/date";
-import type { Importance } from "@/lib/types";
+import { addDays, getDate, mondayIndex, toKey } from "@/lib/date";
+import type { AnyItem, Importance } from "@/lib/types";
 import { FIELD_LABEL_CLASS, INPUT_CLASS, type ItemKind } from "@/lib/itemMeta";
 import { AnimatePresence, motion } from "motion/react";
 import { useStore } from "@/lib/store";
@@ -20,7 +20,15 @@ type Props = {
    * starts empty (instead of pre-filled with defaultDate) since the point
    * is to add a one-off task with no day yet. */
   unscheduled?: boolean;
+  /** Opens the same form pre-filled for an existing item; the kind is fixed
+   * and saving replaces the item instead of adding one. */
+  editing?: AnyItem;
 };
+
+/** The first date on or after `from` that falls on `weekday` (0 = Pzt). */
+function nextWeekday(from: Date, weekday: number): string {
+  return toKey(addDays(from, (weekday - mondayIndex(from) + 7) % 7));
+}
 
 const TITLE_ONLY_KINDS: ItemKind[] = ["recurringTodo", "weeklyTodo", "oneOff"];
 
@@ -38,30 +46,91 @@ function parseAmount(raw: string): number | undefined {
   return n;
 }
 
-export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Props) {
-  const { addBill, addInstallment, addCreditCard, addRecurringTodo, addWeeklyTodo, addOneOff } =
-    useStore();
+export function AddItemSheet({ defaultDate, onClose, unscheduled = false, editing }: Props) {
+  const {
+    addBill,
+    addInstallment,
+    addCreditCard,
+    addRecurringTodo,
+    addWeeklyTodo,
+    addOneOff,
+    updateItem,
+  } = useStore();
   useBodyScrollLock(true);
-  const [kind, setKind] = useState<ItemKind>("oneOff");
+  const e = editing;
+  const [kind, setKind] = useState<ItemKind>(e?.kind ?? "oneOff");
 
-  const [name, setName] = useState("");
-  const [amount, setAmount] = useState("");
-  const [dayOfMonth, setDayOfMonth] = useState(getDate(defaultDate));
-  const [importance, setImportance] = useState<Importance>("orta");
-  const [startDate, setStartDate] = useState(unscheduled ? "" : toKey(defaultDate));
+  const [name, setName] = useState(
+    e ? (e.kind === "bill" || e.kind === "installment" || e.kind === "creditCard" ? e.name : e.title) : ""
+  );
+  const [amount, setAmount] = useState(
+    e && (e.kind === "bill" || e.kind === "installment") && e.amount !== undefined ? String(e.amount) : ""
+  );
+  const [dayOfMonth, setDayOfMonth] = useState(e?.kind === "bill" ? e.dayOfMonth : getDate(defaultDate));
+  const [importance, setImportance] = useState<Importance>(
+    (e && "importance" in e ? e.importance : undefined) ?? "orta"
+  );
+  const [startDate, setStartDate] = useState(() => {
+    if (e?.kind === "installment" || e?.kind === "recurringTodo") return e.startDate;
+    if (e?.kind === "oneOff") return e.date ?? "";
+    return unscheduled ? "" : toKey(defaultDate);
+  });
   // Only meaningful for kind === "oneOff" — every other kind always has a
   // date. Starts off when opened from the "Zamanı belirsiz" panel's + button.
-  const [hasDate, setHasDate] = useState(!unscheduled);
-  const [count, setCount] = useState(3);
-  const [weekday, setWeekday] = useState(mondayIndex(defaultDate));
-  const [statementDay, setStatementDay] = useState(getDate(defaultDate));
+  const [hasDate, setHasDate] = useState(e?.kind === "oneOff" ? !!e.date : !unscheduled);
+  const [count, setCount] = useState(e?.kind === "installment" ? e.count : 3);
+  const [weekday, setWeekday] = useState(
+    e?.kind === "weeklyTodo" && e.weekday !== undefined ? e.weekday : mondayIndex(defaultDate)
+  );
+  const [statementDay, setStatementDay] = useState(
+    e?.kind === "creditCard" ? e.statementDay : getDate(defaultDate)
+  );
   // Just a starting suggestion (typical ~10 day gap) — the user adjusts to
   // match their actual card.
-  const [dueDay, setDueDay] = useState(() => Math.min(31, getDate(defaultDate) + 10));
+  const [dueDay, setDueDay] = useState(() =>
+    e?.kind === "creditCard" ? e.dueDay : Math.min(31, getDate(defaultDate) + 10)
+  );
+
+  function save(): boolean {
+    if (!e) return false;
+    const title = name.trim();
+    const safeAmount = parseAmount(amount);
+    if (e.kind === "bill") {
+      updateItem({ ...e, name: title, amount: safeAmount, dayOfMonth: clampInt(dayOfMonth, 1, 31), importance });
+    } else if (e.kind === "installment") {
+      if (safeAmount === undefined || !startDate) return true;
+      updateItem({ ...e, name: title, amount: safeAmount, startDate, count: clampInt(count, 1, 60), importance });
+    } else if (e.kind === "creditCard") {
+      updateItem({
+        ...e,
+        name: title,
+        statementDay: clampInt(statementDay, 1, 31),
+        dueDay: clampInt(dueDay, 1, 31),
+        importance,
+      });
+    } else if (e.kind === "recurringTodo") {
+      if (!startDate) return true;
+      updateItem({ ...e, title, startDate });
+    } else if (e.kind === "weeklyTodo") {
+      const wd = clampInt(weekday, 0, 6);
+      // A start still ahead moves with the day; one already passed stays,
+      // so past weeks keep their ticks.
+      const today = toKey(new Date());
+      const start =
+        wd !== e.weekday && e.startDate >= today ? nextWeekday(new Date(), wd) : e.startDate;
+      updateItem({ ...e, title, weekday: wd, startDate: start });
+    } else {
+      const date = hasDate ? startDate || undefined : undefined;
+      updateItem({ ...e, title, date, importance: date ? importance : undefined });
+    }
+    onClose();
+    return true;
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+    if (save()) return;
 
     const safeAmount = parseAmount(amount);
 
@@ -84,7 +153,6 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
     } else if (kind === "creditCard") {
       addCreditCard({
         name: name.trim(),
-        amount: safeAmount,
         statementDay: clampInt(statementDay, 1, 31),
         dueDay: clampInt(dueDay, 1, 31),
         importance,
@@ -92,7 +160,8 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
     } else if (kind === "recurringTodo") {
       addRecurringTodo({ title: name.trim(), startDate });
     } else if (kind === "weeklyTodo") {
-      addWeeklyTodo({ title: name.trim(), startDate, weekday: clampInt(weekday, 0, 6) });
+      const wd = clampInt(weekday, 0, 6);
+      addWeeklyTodo({ title: name.trim(), startDate: nextWeekday(new Date(), wd), weekday: wd });
     } else {
       addOneOff({ title: name.trim(), date: hasDate ? startDate || undefined : undefined });
     }
@@ -100,14 +169,20 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
   }
 
   const isPayment = kind === "bill" || kind === "installment" || kind === "creditCard";
+  // A card's amount changes every month — it's entered on the statement row.
+  const hasAmount = kind === "bill" || kind === "installment";
+  // An assigned one-off carries an importance (set via "Ata"); editing shows it.
+  const showImportance = isPayment || (!!e && kind === "oneOff" && hasDate);
   const isTitleOnly = TITLE_ONLY_KINDS.includes(kind);
 
   return (
-    <Sheet open title="Yeni kayıt" onClose={onClose} maxHeightClassName="max-h-[92vh]">
-        <div className="flex flex-col gap-1.5 pb-4">
-          <span className={FIELD_LABEL_CLASS}>Tür</span>
-          <KindSelector value={kind} onChange={setKind} />
-        </div>
+    <Sheet open title={e ? "Düzenle" : "Yeni kayıt"} onClose={onClose} maxHeightClassName="max-h-[92vh]">
+        {!e && (
+          <div className="flex flex-col gap-1.5 pb-4">
+            <span className={FIELD_LABEL_CLASS}>Tür</span>
+            <KindSelector value={kind} onChange={setKind} />
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
@@ -138,9 +213,9 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
               transition={{ duration: 0.2 }}
               className="flex flex-col gap-4"
             >
-          {isPayment && (
+          {hasAmount && (
             <label className="flex flex-col gap-1.5">
-              <span className={FIELD_LABEL_CLASS}>Tutar {kind === "bill" || kind === "creditCard" ? "(opsiyonel)" : ""}</span>
+              <span className={FIELD_LABEL_CLASS}>Tutar {kind === "bill" ? "(opsiyonel)" : ""}</span>
               <input
                 type="number"
                 inputMode="decimal"
@@ -202,7 +277,7 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
             </>
           )}
 
-          {(kind === "recurringTodo" || kind === "weeklyTodo") && (
+          {kind === "recurringTodo" && (
             <label className="flex flex-col gap-1.5">
               <span className={FIELD_LABEL_CLASS}>Başlangıç tarihi</span>
               <input
@@ -267,7 +342,7 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
             </div>
           )}
 
-          {isPayment && (
+          {showImportance && (
             <div className="flex flex-col gap-1.5">
               <span className={FIELD_LABEL_CLASS}>Önem</span>
               <ImportanceSelector value={importance} onChange={setImportance} />
@@ -282,7 +357,7 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false }: Prop
             whileTap={{ scale: 0.97 }}
             className="mt-2 min-h-[52px] rounded-full bg-ink text-[16px] font-semibold text-paper"
           >
-            Ekle
+            {e ? "Kaydet" : "Ekle"}
           </motion.button>
         </form>
     </Sheet>

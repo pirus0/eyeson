@@ -57,6 +57,8 @@ export type CreditCard = {
   id: string;
   kind: "creditCard";
   name: string;
+  /** Legacy fixed amount from before per-statement amounts — still shown as
+   * a fallback for cycles where nothing was entered. */
   amount?: number;
   statementDay: number; // 1-31, hesap kesim günü
   dueDay: number; // 1-31, son ödeme günü — may fall in the month after statementDay
@@ -71,6 +73,10 @@ export type AnyItem = Bill | Installment | RecurringTodo | WeeklyTodo | OneOff |
 export type Completion = {
   done: boolean;
   doneAt?: string;
+  /** Only on a credit card's statement-date completion: the amount the
+   * statement came to that month, entered on the statement row. The due
+   * row of the same cycle shows it. */
+  amount?: number;
 };
 
 // key format: `${itemId}:${YYYY-MM-DD}`

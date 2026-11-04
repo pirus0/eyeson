@@ -10,7 +10,9 @@ import {
   useState,
 } from "react";
 import type {
+  AnyItem,
   Bill,
+  CompletionMap,
   CreditCard,
   Importance,
   Installment,
@@ -21,6 +23,77 @@ import type {
 } from "./types";
 import { emptyData, loadData, saveData } from "./storage";
 import { mergeData } from "./backup";
+import { clampToMonth, fromKey, toKey } from "./date";
+
+const LIST_BY_KIND = {
+  bill: "bills",
+  installment: "installments",
+  recurringTodo: "recurringTodos",
+  weeklyTodo: "weeklyTodos",
+  oneOff: "oneOffs",
+  creditCard: "creditCards",
+} as const;
+
+function monthIndexOf(key: string): number {
+  const d = fromKey(key);
+  return d.getFullYear() * 12 + d.getMonth();
+}
+
+/** Moves every `${prefix}:${date}` completion to the date `newDateFor`
+ * gives it (null = leave it). */
+function remapCompletions(
+  completions: CompletionMap,
+  prefix: string,
+  newDateFor: (oldDate: string) => string | null
+): CompletionMap {
+  let out: CompletionMap | null = null;
+  for (const [key, value] of Object.entries(completions)) {
+    if (!key.startsWith(prefix + ":")) continue;
+    const oldDate = key.slice(prefix.length + 1);
+    if (oldDate.includes(":")) continue; // a card's :statement/:due key under the bare id
+    const newDate = newDateFor(oldDate);
+    if (!newDate || newDate === oldDate) continue;
+    out ??= { ...completions };
+    delete out[key];
+    out[`${prefix}:${newDate}`] = value;
+  }
+  return out ?? completions;
+}
+
+const sameMonthOnDay = (day: number) => (oldDate: string) => {
+  const d = fromKey(oldDate);
+  return toKey(clampToMonth(d.getFullYear(), d.getMonth(), day));
+};
+
+/** When an edit moves an item's day, its past ticks (and a card's entered
+ * statement amounts) follow to the new day in the same month — otherwise
+ * every already-paid month would resurface as overdue on the new date. */
+function moveCompletions(prev: AnyItem, next: AnyItem, c: CompletionMap): CompletionMap {
+  if (prev.kind === "bill" && next.kind === "bill" && prev.dayOfMonth !== next.dayOfMonth) {
+    return remapCompletions(c, prev.id, sameMonthOnDay(next.dayOfMonth));
+  }
+  if (prev.kind === "installment" && next.kind === "installment" && prev.startDate !== next.startDate) {
+    const shift = monthIndexOf(next.startDate) - monthIndexOf(prev.startDate);
+    const day = fromKey(next.startDate).getDate();
+    return remapCompletions(c, prev.id, (oldDate) => {
+      const d = fromKey(oldDate);
+      return toKey(clampToMonth(d.getFullYear(), d.getMonth() + shift, day));
+    });
+  }
+  if (prev.kind === "creditCard" && next.kind === "creditCard") {
+    if (prev.statementDay !== next.statementDay) {
+      c = remapCompletions(c, `${prev.id}:statement`, sameMonthOnDay(next.statementDay));
+    }
+    if (prev.dueDay !== next.dueDay) {
+      c = remapCompletions(c, `${prev.id}:due`, sameMonthOnDay(next.dueDay));
+    }
+    return c;
+  }
+  if (prev.kind === "oneOff" && next.kind === "oneOff" && prev.date && next.date && prev.date !== next.date) {
+    return remapCompletions(c, prev.id, (oldDate) => (oldDate === prev.date ? next.date! : null));
+  }
+  return c;
+}
 
 function makeId(): string {
   return crypto.randomUUID();
@@ -60,8 +133,11 @@ type StoreContextValue = {
     kind: "bill" | "installment" | "recurringTodo" | "weeklyTodo" | "oneOff" | "creditCard",
     id: string
   ) => void;
-  /** `key` is an Occurrence's `key` (already accounts for daily vs weekly completion grouping). */
-  setDone: (key: string, done: boolean) => void;
+  /** Replaces an item with its edited copy (same id and kind). */
+  updateItem: (item: AnyItem) => void;
+  /** `key` is an Occurrence's `key` (already accounts for daily vs weekly
+   * completion grouping). `amount` is only used on a card's statement row. */
+  setDone: (key: string, done: boolean, amount?: number) => void;
   /** Merges a backup / import link into what's here; returns how many
    * records were new. */
   importData: (incoming: StoreData) => number;
@@ -215,12 +291,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const setDone = useCallback<StoreContextValue["setDone"]>((key, done) => {
+  const updateItem = useCallback<StoreContextValue["updateItem"]>((item) => {
+    setData((d) => {
+      const listKey = LIST_BY_KIND[item.kind];
+      const list = d[listKey] as AnyItem[];
+      const prev = list.find((x) => x.id === item.id);
+      if (!prev) return d;
+      return {
+        ...d,
+        [listKey]: list.map((x) => (x.id === item.id ? item : x)),
+        completions: moveCompletions(prev, item, d.completions),
+      };
+    });
+  }, []);
+
+  const setDone = useCallback<StoreContextValue["setDone"]>((key, done, amount) => {
     setData((d) => ({
       ...d,
       completions: {
         ...d.completions,
-        [key]: { done, doneAt: done ? new Date().toISOString() : undefined },
+        [key]: {
+          done,
+          doneAt: done ? new Date().toISOString() : undefined,
+          // Kept when unticking so the input comes back pre-filled.
+          amount: amount ?? d.completions[key]?.amount,
+        },
       },
     }));
   }, []);
@@ -237,6 +332,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       assignOneOff,
       addCreditCard,
       removeItem,
+      updateItem,
       setDone,
       importData,
     }),
@@ -251,6 +347,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       assignOneOff,
       addCreditCard,
       removeItem,
+      updateItem,
       setDone,
       importData,
     ]
