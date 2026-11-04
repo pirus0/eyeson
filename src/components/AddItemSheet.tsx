@@ -163,7 +163,9 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false, editin
       const wd = clampInt(weekday, 0, 6);
       addWeeklyTodo({ title: name.trim(), startDate: nextWeekday(new Date(), wd), weekday: wd });
     } else {
-      addOneOff({ title: name.trim(), date: hasDate ? startDate || undefined : undefined });
+      const date = hasDate ? startDate || undefined : undefined;
+      // A dated task carries an importance (its eye and reminder), as on iOS.
+      addOneOff({ title: name.trim(), date, importance: date ? importance : undefined });
     }
     onClose();
   }
@@ -171,8 +173,8 @@ export function AddItemSheet({ defaultDate, onClose, unscheduled = false, editin
   const isPayment = kind === "bill" || kind === "installment" || kind === "creditCard";
   // A card's amount changes every month — it's entered on the statement row.
   const hasAmount = kind === "bill" || kind === "installment";
-  // An assigned one-off carries an importance (set via "Ata"); editing shows it.
-  const showImportance = isPayment || (!!e && kind === "oneOff" && hasDate);
+  // A dated one-off carries an importance, like an assigned one.
+  const showImportance = isPayment || (kind === "oneOff" && hasDate);
   const isTitleOnly = TITLE_ONLY_KINDS.includes(kind);
 
   return (
