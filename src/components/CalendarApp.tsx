@@ -126,6 +126,11 @@ export function CalendarApp() {
     setActiveSheet((s) => (s === "unscheduled" ? null : s));
   }, [today, setMonthAnchor]);
 
+  const awayFromToday =
+    !isSameDay(selected, today) ||
+    monthAnchor.getFullYear() !== today.getFullYear() ||
+    monthAnchor.getMonth() !== today.getMonth();
+
   const overdue = useMemo(
     () => computeOverdue(data, data.completions, today),
     [data, today]
@@ -203,7 +208,6 @@ export function CalendarApp() {
         onSelect={handleSelectDay}
         onPrevMonth={handlePrevMonth}
         onNextMonth={handleNextMonth}
-        onToday={handleToday}
       />
 
       <AnimatePresence mode="wait" initial={false}>
@@ -264,6 +268,23 @@ export function CalendarApp() {
             editing={editing}
             onClose={() => setEditing(null)}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {awayFromToday && (activeSheet === null || activeSheet === "unscheduled") && !editing && (
+          <motion.button
+            key="today"
+            type="button"
+            onClick={handleToday}
+            initial={{ opacity: 0, y: 16, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 500, damping: 32 }}
+            className="press fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-[max(1rem,calc(50%-14rem+1rem))] z-30 h-11 rounded-full bg-ink px-5 text-[15px] font-semibold text-paper shadow-[0_8px_24px_-10px_rgba(0,0,0,0.45)]"
+          >
+            Bugün
+          </motion.button>
         )}
       </AnimatePresence>
 

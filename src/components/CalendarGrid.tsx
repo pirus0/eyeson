@@ -39,7 +39,6 @@ type Props = {
   onSelect: (date: Date) => void;
   onPrevMonth: () => void;
   onNextMonth: () => void;
-  onToday: () => void;
 };
 
 type DayCellProps = {
@@ -117,8 +116,12 @@ const DayCell = memo(function DayCell({
       aria-label={format(day, "d MMMM EEEE", { locale: tr })}
       aria-pressed={isSelected}
       tabIndex={0}
-      className="flex h-[52px] items-center justify-center"
+      className="relative flex h-[52px] items-center justify-center"
     >
+      {isToday && inMonth && (
+        // Always-on today mark: an eye can cover the cell, the dot can't.
+        <span className="pointer-events-none absolute bottom-[-3px] left-1/2 h-[5px] w-[5px] -translate-x-1/2 rounded-full bg-iris" />
+      )}
       <span className="relative flex h-11 w-11 items-center justify-center">
         {hasUrgent &&
           (urgentPending ? (
@@ -206,7 +209,6 @@ export const CalendarGrid = memo(function CalendarGrid({
   onSelect,
   onPrevMonth,
   onNextMonth,
-  onToday,
 }: Props) {
   const currentMonth = monthAnchor.getMonth();
   const monthKey = `${monthAnchor.getFullYear()}-${currentMonth}`;
@@ -219,8 +221,6 @@ export const CalendarGrid = memo(function CalendarGrid({
 
   const nextMonthAnchor = useMemo(() => addMonths(monthAnchor, 1), [monthAnchor]);
   const nextMonth = nextMonthAnchor.getMonth();
-  const showingThisMonth =
-    monthAnchor.getFullYear() === today.getFullYear() && currentMonth === today.getMonth();
 
   // One gesture surface, two meanings, decided by whichever axis the finger
   // commits to first:
@@ -387,21 +387,6 @@ export const CalendarGrid = memo(function CalendarGrid({
           </AnimatePresence>
         </div>
         <div className="flex items-center gap-1">
-          <AnimatePresence>
-            {!showingThisMonth && (
-              <motion.button
-                type="button"
-                onClick={onToday}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                className="press mr-1 h-8 rounded-full bg-iris-soft px-3 text-[13px] font-semibold text-iris"
-              >
-                Bugün
-              </motion.button>
-            )}
-          </AnimatePresence>
           <IconButton onClick={onPrevMonth} ariaLabel="Önceki ay" className="bg-ink/5 text-ink">
             <ChevronLeftIcon className="h-5 w-5" />
           </IconButton>
