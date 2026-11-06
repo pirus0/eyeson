@@ -3,7 +3,6 @@ import {
   differenceInCalendarDays,
   fromKey,
   getDate,
-  isSameDay,
   mondayIndex,
   toKey,
   weekStart,
@@ -36,54 +35,81 @@ export type Occurrence = {
   cardAmount?: number;
 };
 
-function isPaymentDay(item: AnyItem, date: Date): boolean {
-  const y = date.getFullYear();
-  const m = date.getMonth();
-
-  if (item.kind === "bill") {
-    if (!item.active) return false;
-    const created = fromKey(item.createdAt.slice(0, 10));
-    if (date < startOfDay(created)) return false;
-    const clamped = clampToMonth(y, m, item.dayOfMonth);
-    return isSameDay(date, clamped);
-  }
-
-  if (item.kind === "installment") {
-    const start = fromKey(item.startDate);
-    const dayOfMonth = getDate(start);
-    const monthDiff = (y - start.getFullYear()) * 12 + (m - start.getMonth());
-    if (monthDiff < 0 || monthDiff >= item.count) return false;
-    const clamped = clampToMonth(y, m, dayOfMonth);
-    return isSameDay(date, clamped);
-  }
-
-  if (item.kind === "recurringTodo" || item.kind === "weeklyTodo") {
-    if (!item.active) return false;
-    const start = fromKey(item.startDate);
-    if (date < startOfDay(start)) return false;
-    if (item.kind === "weeklyTodo" && item.weekday !== undefined) {
-      return mondayIndex(date) === item.weekday;
-    }
-    return true;
-  }
-
-  if (item.kind === "oneOff") {
-    // Unscheduled — waiting to be assigned a day, never occupies one on its own.
-    if (!item.date) return false;
-    return isSameDay(date, fromKey(item.date));
-  }
-
-  // creditCard is generated separately in occurrencesForRange (two dates a
-  // month, tracked with their own completion keys) — never reaches here.
-  return false;
+/** yyyymmdd as one integer — compares like the date it stands for. */
+function dayNum(d: Date): number {
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 }
 
-function isCreditCardDay(item: CreditCard, day: number, date: Date): boolean {
-  if (!item.active) return false;
-  const created = fromKey(item.createdAt.slice(0, 10));
-  if (date < startOfDay(created)) return false;
-  const clamped = clampToMonth(date.getFullYear(), date.getMonth(), day);
-  return isSameDay(date, clamped);
+/** The per-day facts every item check needs, worked out once per day instead
+ * of once per item per day. */
+type DayInfo = {
+  date: Date;
+  dateKey: string;
+  num: number;
+  y: number;
+  m: number;
+  d: number;
+  daysInMonth: number;
+  weekday: number; // 0 = Monday
+  weekKey: string | null; // filled in on first use
+};
+
+/** Each item's dates parsed once per range call — parsing them inside the
+ * day loop (hundreds of days × every item) is what made each tick slow. */
+type Prepared = { item: AnyItem; from: number; aux: number };
+
+function prepare(item: AnyItem): Prepared {
+  switch (item.kind) {
+    case "bill":
+    case "creditCard":
+      return { item, from: dayNum(fromKey(item.createdAt.slice(0, 10))), aux: 0 };
+    case "installment": {
+      const start = fromKey(item.startDate);
+      return {
+        item,
+        from: start.getFullYear() * 12 + start.getMonth(),
+        aux: getDate(start),
+      };
+    }
+    case "recurringTodo":
+    case "weeklyTodo":
+      return { item, from: dayNum(fromKey(item.startDate)), aux: 0 };
+    case "oneOff":
+      // aux = the assigned day's number, 0 = unscheduled.
+      return { item, from: 0, aux: item.date ? dayNum(fromKey(item.date)) : 0 };
+  }
+}
+
+function hitsDay(p: Prepared, day: DayInfo): boolean {
+  const item = p.item;
+  switch (item.kind) {
+    case "bill":
+      if (!item.active || day.num < p.from) return false;
+      return day.d === Math.min(item.dayOfMonth, day.daysInMonth);
+    case "installment": {
+      const monthDiff = day.y * 12 + day.m - p.from;
+      if (monthDiff < 0 || monthDiff >= item.count) return false;
+      return day.d === Math.min(p.aux, day.daysInMonth);
+    }
+    case "recurringTodo":
+    case "weeklyTodo":
+      if (!item.active || day.num < p.from) return false;
+      if (item.kind === "weeklyTodo" && item.weekday !== undefined) {
+        return day.weekday === item.weekday;
+      }
+      return true;
+    case "oneOff":
+      // Unscheduled — waiting to be assigned a day, never occupies one on its own.
+      return p.aux !== 0 && day.num === p.aux;
+    default:
+      // creditCard is generated separately (two dates a month, own keys).
+      return false;
+  }
+}
+
+function isCreditCardDay(item: CreditCard, from: number, dom: number, day: DayInfo): boolean {
+  if (!item.active || day.num < from) return false;
+  return day.d === Math.min(dom, day.daysInMonth);
 }
 
 /** The other date in a credit card's cycle relative to a given occurrence —
@@ -107,11 +133,12 @@ export function creditCardCompanionDate(
 
 /** Weekly todos share one completion across their whole Mon-Sun week (so checking
  * it off on any day marks the week done, and it resets automatically next week). */
-function occurrenceKeyFor(item: AnyItem, date: Date, dateKey: string): string {
+function occurrenceKeyFor(item: AnyItem, day: DayInfo): string {
   if (item.kind === "weeklyTodo") {
-    return completionKey(item.id, toKey(weekStart(date)));
+    day.weekKey ??= toKey(new Date(day.y, day.m, day.d - day.weekday));
+    return completionKey(item.id, day.weekKey);
   }
-  return completionKey(item.id, dateKey);
+  return completionKey(item.id, day.dateKey);
 }
 
 function startOfDay(d: Date): Date {
@@ -141,17 +168,32 @@ export function occurrencesForRange(
     ...data.oneOffs,
     ...data.creditCards,
   ];
+  const prepared = items.map(prepare);
   const result: Occurrence[] = [];
   const dayCount = differenceInCalendarDays(rangeEnd, rangeStart) + 1;
 
   for (let i = 0; i < dayCount; i++) {
     const date = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + i);
-    const dateKey = toKey(date);
-    for (const item of items) {
+    const y = date.getFullYear();
+    const m = date.getMonth();
+    const day: DayInfo = {
+      date,
+      dateKey: toKey(date),
+      num: dayNum(date),
+      y,
+      m,
+      d: date.getDate(),
+      daysInMonth: new Date(y, m + 1, 0).getDate(),
+      weekday: mondayIndex(date),
+      weekKey: null,
+    };
+    const dateKey = day.dateKey;
+    for (const p of prepared) {
+      const item = p.item;
       if (item.kind === "creditCard") {
         // Two independent monthly recurrences (statement, due), tracked with
         // their own completion keys so marking one doesn't affect the other.
-        if (isCreditCardDay(item, item.statementDay, date)) {
+        if (isCreditCardDay(item, p.from, item.statementDay, day)) {
           const key = completionKey(`${item.id}:statement`, dateKey);
           const c = completions[key];
           result.push({
@@ -164,7 +206,7 @@ export function occurrencesForRange(
             cardAmount: c?.done ? c.amount : undefined,
           });
         }
-        if (isCreditCardDay(item, item.dueDay, date)) {
+        if (isCreditCardDay(item, p.from, item.dueDay, day)) {
           const key = completionKey(`${item.id}:due`, dateKey);
           const statementKey = completionKey(
             `${item.id}:statement`,
@@ -183,8 +225,8 @@ export function occurrencesForRange(
         }
         continue;
       }
-      if (!isPaymentDay(item, date)) continue;
-      const key = occurrenceKeyFor(item, date, dateKey);
+      if (!hitsDay(p, day)) continue;
+      const key = occurrenceKeyFor(item, day);
       result.push({
         key,
         dateKey,

@@ -16,8 +16,13 @@ import { tr } from "date-fns/locale";
 
 export const DATE_FMT = "yyyy-MM-dd";
 
+/** Same output as format(date, DATE_FMT), built by hand — this runs thousands
+ * of times per tick in the occurrence engine and date-fns' format is slow. */
 export function toKey(date: Date): string {
-  return format(date, DATE_FMT);
+  const y = date.getFullYear();
+  const m = date.getMonth() + 1;
+  const d = date.getDate();
+  return `${String(y).padStart(4, "0")}-${m < 10 ? "0" : ""}${m}-${d < 10 ? "0" : ""}${d}`;
 }
 
 export function fromKey(key: string): Date {
