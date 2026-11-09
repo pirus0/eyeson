@@ -54,3 +54,13 @@ test("kayıt: okunamayan veri ayrı anahtara saklanır", () => {
     assert.ok([...store.keys()].some((k) => k.startsWith("eyeson-data-v1-bozuk-")));
   } finally { delete (globalThis as { window?: unknown }).window; }
 });
+
+test("gün sıralaması: yapılmamış önce, sonra önem, bitmiş en altta", async () => {
+  const { sortOccurrences } = await import("../src/components/day/order");
+  const occ = (id: string, importance: "yuksek" | "orta" | "dusuk", done: boolean) => ({
+    key: `${id}:2026-11-09`, dateKey: "2026-11-09", date: today, done,
+    item: { id, kind: "oneOff" as const, title: id, date: "2026-11-09", importance, createdAt: stamp },
+  });
+  const sorted = sortOccurrences([occ("bitti", "yuksek", true), occ("dusuk", "dusuk", false), occ("yuksek", "yuksek", false)], {});
+  assert.deepEqual(sorted.map((o) => o.item.id), ["yuksek", "dusuk", "bitti"]);
+});
