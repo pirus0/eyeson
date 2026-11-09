@@ -350,17 +350,35 @@ export function computeReminders(
  * follows the user into "today" instead of disappearing. Marking one done
  * uses its original occurrence key, so it settles on the day it was actually
  * due rather than spawning a new completion on today's date. */
+/** First day any non-daily record could land on: creation for bills and
+ * cards, start for installments and weekly todos, the day of a dated one-off.
+ * Capped at 30 years back so a mistyped year can't make the scan unbounded. */
+function earliestOccurrenceStart(data: StoreData, todayStart: Date): Date {
+  const keys: string[] = [
+    ...data.bills.map((x) => x.createdAt.slice(0, 10)),
+    ...data.creditCards.map((x) => x.createdAt.slice(0, 10)),
+    ...data.installments.map((x) => x.startDate),
+    ...data.weeklyTodos.map((x) => x.startDate),
+    ...data.oneOffs.flatMap((x) => (x.date ? [x.date] : [])),
+  ].filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k));
+  const floor = new Date(todayStart.getFullYear() - 30, todayStart.getMonth(), todayStart.getDate());
+  if (!keys.length) return todayStart;
+  const earliest = fromKey(keys.reduce((a, b) => (a < b ? a : b)));
+  return earliest < floor ? floor : earliest;
+}
+
 export function computeOverdue(
   data: StoreData,
   completions: CompletionMap,
   today: Date
 ): Occurrence[] {
   const todayStart = startOfDay(today);
-  const rangeStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), todayStart.getDate() - 400);
+  // No cut-off: an undone task keeps following the user until it's done.
+  // The scan starts at the earliest day anything could fall on.
+  const rangeStart = earliestOccurrenceStart(data, todayStart);
   const rangeEnd = new Date(todayStart.getFullYear(), todayStart.getMonth(), todayStart.getDate() - 1);
-  // recurringTodo is filtered out below anyway (it resets fresh each day, never
-  // "overdue") — excluding it here stops occurrencesForRange from materializing
-  // ~400 throwaway entries per item.
+  // Daily todos are handled after the scan (yesterday only) — keeping them out
+  // stops occurrencesForRange from materializing an entry per day per item.
   const relevantData: StoreData = { ...data, recurringTodos: [] };
   const occurrences = occurrencesForRange(relevantData, completions, rangeStart, rangeEnd);
   const currentWeekStart = weekStart(todayStart);
@@ -387,6 +405,16 @@ export function computeOverdue(
     if (seen.has(occ.key)) continue;
     seen.add(occ.key);
     result.push({ ...occ, carriedOverdue: true });
+  }
+
+  // A daily todo left undone yesterday comes along as a single row. Only
+  // yesterday is checked, so days missed in a row never pile up.
+  const yesterday = rangeEnd, yesterdayKey = toKey(yesterday);
+  for (const item of data.recurringTodos) {
+    if (!item.active || item.startDate > yesterdayKey) continue;
+    const key = completionKey(item.id, yesterdayKey);
+    if (completions[key]?.done) continue;
+    result.push({ key, dateKey: yesterdayKey, date: yesterday, item, done: false, carriedOverdue: true });
   }
 
   return result;

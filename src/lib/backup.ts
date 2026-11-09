@@ -83,6 +83,37 @@ async function decodeLinkCode(code: string): Promise<unknown> {
   return JSON.parse(new TextDecoder().decode(raw));
 }
 
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
+const isDayKey = (v: unknown) => typeof v === "string" && DAY_KEY.test(v);
+const isStamp = (v: unknown) => typeof v === "string" && DAY_KEY.test(v.slice(0, 10));
+const isDayOfMonth = (v: unknown) => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 31;
+const isText = (v: unknown) => typeof v === "string";
+
+/** The fields the calendar code reads without checking. A record missing one
+ * would crash the date math, so it's left out of the import instead. Optional
+ * fields (amount, importance, active…) are not required: older backups may
+ * lack them and the app copes. */
+function usable(r: Record<string, unknown>): boolean {
+  if (!isStamp(r.createdAt)) return false;
+  switch (r.kind) {
+    case "bill":
+      return isText(r.name) && isDayOfMonth(r.dayOfMonth);
+    case "installment":
+      return isText(r.name) && isDayKey(r.startDate) && Number.isInteger(r.count) && (r.count as number) >= 1;
+    case "recurringTodo":
+      return isText(r.title) && isDayKey(r.startDate);
+    case "weeklyTodo":
+      return isText(r.title) && isDayKey(r.startDate) &&
+        (r.weekday === undefined || (Number.isInteger(r.weekday) && (r.weekday as number) >= 0 && (r.weekday as number) <= 6));
+    case "oneOff":
+      return isText(r.title) && (r.date === undefined || isDayKey(r.date));
+    case "creditCard":
+      return isText(r.name) && isDayOfMonth(r.statementDay) && isDayOfMonth(r.dueDay);
+    default:
+      return false;
+  }
+}
+
 /** Keeps only well-formed records, so a half-copied or foreign file can't
  * put something into the store that the calendar code would trip over. */
 function normalize(input: unknown): StoreData | null {
@@ -96,13 +127,16 @@ function normalize(input: unknown): StoreData | null {
   const out = {} as StoreData;
   for (const key of LIST_KEYS) {
     const list = Array.isArray(source[key]) ? (source[key] as unknown[]) : [];
-    (out[key] as unknown[]) = list.filter(
-      (x): x is Record<string, unknown> =>
-        !!x &&
-        typeof x === "object" &&
-        typeof (x as Record<string, unknown>).id === "string" &&
-        (x as Record<string, unknown>).kind === KIND_BY_LIST[key]
-    );
+    // First copy of an id wins, so a file that lists a record twice can't
+    // put two of it on the calendar.
+    const seen = new Set<string>();
+    (out[key] as unknown[]) = list.filter((x): x is Record<string, unknown> => {
+      if (!x || typeof x !== "object") return false;
+      const r = x as Record<string, unknown>;
+      if (typeof r.id !== "string" || r.kind !== KIND_BY_LIST[key] || seen.has(r.id) || !usable(r)) return false;
+      seen.add(r.id);
+      return true;
+    });
   }
   const completions = source.completions;
   out.completions =
@@ -145,7 +179,8 @@ export function mergeData(local: StoreData, incoming: StoreData): { merged: Stor
   const merged = { ...local };
   for (const key of LIST_KEYS) {
     const ids = new Set(local[key].map((x) => x.id));
-    const fresh = (incoming[key] as Array<{ id: string }>).filter((x) => !ids.has(x.id));
+    // Adding each id as it's taken also drops repeats within the incoming list.
+    const fresh = (incoming[key] as Array<{ id: string }>).filter((x) => !ids.has(x.id) && !!ids.add(x.id));
     added += fresh.length;
     (merged[key] as unknown[]) = [...local[key], ...fresh];
   }

@@ -2,7 +2,7 @@
 
 import type { Occurrence } from "@/lib/occurrences";
 import { creditCardCompanionDate, occurrenceAmount, occurrenceImportance } from "@/lib/occurrences";
-import { useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   AnimatePresence,
   animate,
@@ -76,12 +76,13 @@ type RowProps = {
   occ: Occurrence;
   overdue?: boolean;
   swipe: SwipeSide | null;
-  onSwipeChange: (side: SwipeSide | null) => void;
+  /** Keyed so one stable function serves every row (see rowPropsEqual). */
+  onSwipeChange: (key: string, side: SwipeSide | null) => void;
   onToggleDone: (key: string, done: boolean) => void;
   onRemove: (kind: Occurrence["item"]["kind"], id: string) => void;
   /** Whether this row's long-press "Düzenle" bubble is showing. */
   editOpen: boolean;
-  onEditOpenChange: (open: boolean) => void;
+  onEditOpenChange: (key: string, open: boolean) => void;
   onEdit: (item: AnyItem) => void;
   /** Position in the list — staggers the entrance when a day opens. */
   index?: number;
@@ -247,18 +248,36 @@ function CheckCircle({ done, onClick }: { done: boolean; onClick: () => void }) 
   );
 }
 
-function OccurrenceRow({
+// A tick changes one row; the others keep equal props and skip re-rendering
+// (and motion's layout measuring), which is what kept a tick slow on phones.
+function sameOccurrence(a: Occurrence, b: Occurrence): boolean {
+  return a.key === b.key && a.done === b.done && a.item === b.item && a.role === b.role &&
+    a.carriedOverdue === b.carriedOverdue && a.cardAmount === b.cardAmount &&
+    a.dateKey === b.dateKey && a.installmentProgress?.index === b.installmentProgress?.index &&
+    a.installmentProgress?.total === b.installmentProgress?.total;
+}
+function rowPropsEqual(a: RowProps, b: RowProps): boolean {
+  return sameOccurrence(a.occ, b.occ) && a.overdue === b.overdue && a.swipe === b.swipe &&
+    a.editOpen === b.editOpen && a.index === b.index && a.onSwipeChange === b.onSwipeChange &&
+    a.onToggleDone === b.onToggleDone && a.onRemove === b.onRemove &&
+    a.onEditOpenChange === b.onEditOpenChange && a.onEdit === b.onEdit;
+}
+
+const OccurrenceRow = memo(function OccurrenceRow({
   occ,
   overdue = false,
   swipe,
-  onSwipeChange,
+  onSwipeChange: onSwipeChangeFor,
   onToggleDone,
   onRemove,
   editOpen,
-  onEditOpenChange,
+  onEditOpenChange: onEditOpenChangeFor,
   onEdit,
   index = 0,
 }: RowProps) {
+  const rowKey = occ.key;
+  const onSwipeChange = useCallback((side: SwipeSide | null) => onSwipeChangeFor(rowKey, side), [onSwipeChangeFor, rowKey]);
+  const onEditOpenChange = useCallback((open: boolean) => onEditOpenChangeFor(rowKey, open), [onEditOpenChangeFor, rowKey]);
   const [reassigning, setReassigning] = useState(false);
   const pressRef = useRef<{ timer: number; x: number; y: number } | null>(null);
   const longPressedRef = useRef(false);
@@ -336,7 +355,9 @@ function OccurrenceRow({
 
   return (
     <motion.li
-      layout="position"
+      // Overdue rows never reorder (a ticked one just leaves), so they skip
+      // layout tracking: with many of them it measured every row on each tick.
+      layout={overdue ? false : "position"}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0, transition: { ...ROW_SPRING, delay: Math.min(index * 0.035, 0.25) } }}
       exit={{ opacity: 0, x: -24, transition: { duration: 0.18 } }}
@@ -516,19 +537,32 @@ function OccurrenceRow({
       </AnimatePresence>
     </motion.li>
   );
-}
+}, rowPropsEqual);
 
 export function DayPanel({ day, occurrences, onAdd, onEdit }: Props) {
   const { setDone, removeItem, data } = useStore();
   const [openSwipe, setOpenSwipe] = useState<OpenSwipe>(null);
   const [editKey, setEditKey] = useState<string | null>(null);
+  // Stable across renders so unchanged rows can skip re-rendering.
+  const onSwipeChange = useCallback(
+    (key: string, side: SwipeSide | null) => setOpenSwipe(side ? { key, side } : null),
+    []
+  );
+  const onEditOpenChange = useCallback(
+    (key: string, open: boolean) => setEditKey((k) => (open ? key : k === key ? null : k)),
+    []
+  );
+  const onEditRef = useRef(onEdit);
+  useEffect(() => {
+    onEditRef.current = onEdit;
+  }, [onEdit]);
+  const editItem = useCallback((item: AnyItem) => onEditRef.current(item), []);
   const swipeProps = (key: string) => ({
     swipe: openSwipe?.key === key ? openSwipe.side : null,
-    onSwipeChange: (side: SwipeSide | null) => setOpenSwipe(side ? { key, side } : null),
+    onSwipeChange,
     editOpen: editKey === key,
-    onEditOpenChange: (open: boolean) =>
-      setEditKey((k) => (open ? key : k === key ? null : k)),
-    onEdit,
+    onEditOpenChange,
+    onEdit: editItem,
   });
 
   const overdue = occurrences.filter((occ) => occ.carriedOverdue);
@@ -594,7 +628,7 @@ export function DayPanel({ day, occurrences, onAdd, onEdit }: Props) {
             <div className="mx-1 mb-2 rounded-[22px] bg-iris-soft pt-2.5 pb-1">
               <p className="flex items-center gap-1.5 px-3 pb-0.5 text-[11px] font-semibold tracking-[0.08em] text-iris uppercase">
                 <span className="h-1.5 w-1.5 rounded-full bg-iris" />
-                Gecikmiş · {overdue.length}
+                Gecikmiş
               </p>
               <ul className="flex flex-col">
                 <AnimatePresence initial={false}>

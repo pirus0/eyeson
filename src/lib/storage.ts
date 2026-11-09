@@ -33,11 +33,23 @@ export function loadData(): StoreData {
       completions: parsed.completions ?? {},
     };
   } catch {
+    // Unreadable data is set aside before starting empty: the next save
+    // would otherwise overwrite the only copy.
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) window.localStorage.setItem(`${STORAGE_KEY}-bozuk-${Date.now()}`, raw);
+    } catch {}
     return emptyData();
   }
 }
 
-export function saveData(data: StoreData): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+/** False when the phone refused the write (storage full or blocked). */
+export function saveData(data: StoreData): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    return true;
+  } catch {
+    return false;
+  }
 }

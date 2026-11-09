@@ -153,6 +153,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // goes from the initial emptyData() to whatever loadData() returned). That
   // transition isn't an edit, so it isn't written back.
   const isHydratingRef = useRef(true);
+  const saveWarnedRef = useRef(false);
   const latestDataRef = useRef(data);
 
   useEffect(() => {
@@ -173,7 +174,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       isHydratingRef.current = false;
       return;
     }
-    saveData(data);
+    if (!saveData(data) && !saveWarnedRef.current) {
+      saveWarnedRef.current = true;
+      window.alert("Değişiklik kaydedilemedi. Telefonda yer kalmamış olabilir; yedek alıp yer açın.");
+    }
   }, [data, ready]);
 
   const importData = useCallback<StoreContextValue["importData"]>((incoming) => {
