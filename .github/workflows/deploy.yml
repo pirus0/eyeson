@@ -24,6 +24,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # A failing check stops the deploy; the live version stays as it was.
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
       - name: Build static export
         env:
           NEXT_PUBLIC_BASE_PATH: /eyeson
