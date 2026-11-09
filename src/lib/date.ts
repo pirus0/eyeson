@@ -72,10 +72,6 @@ export function formatMonthTitle(date: Date): string {
   return format(date, "LLLL yyyy", { locale: tr });
 }
 
-export function formatDayTitle(date: Date): string {
-  return format(date, "d LLLL yyyy, EEEE", { locale: tr });
-}
-
 export function formatShort(date: Date): string {
   return format(date, "d MMM", { locale: tr });
 }

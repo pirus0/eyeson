@@ -46,7 +46,6 @@ export async function shareBackup(data: StoreData): Promise<boolean> {
  * browser — it's never sent to GitHub Pages — so the data only ever lives
  * inside the message the link was sent in. */
 export const LINK_MARKER = "yukle=";
-export const APP_URL = "https://pirus0.github.io/eyeson/";
 
 const LIST_KEYS = [
   "bills",
