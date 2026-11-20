@@ -43,7 +43,7 @@ export function Sheet({
   return (
     <AnimatePresence propagate>
       {open && (
-        <div className="fixed inset-0 z-30 flex items-end justify-center sm:items-center">
+        <div className="fixed inset-0 z-30 flex items-end justify-center">
           <motion.div
             key="scrim"
             className="absolute inset-0 bg-[var(--scrim)] backdrop-blur-[2px]"
@@ -58,7 +58,7 @@ export function Sheet({
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className={`relative flex w-full max-w-md flex-col overflow-hidden rounded-t-[28px] bg-surface shadow-[0_-12px_40px_-12px_rgba(0,0,0,0.25)] sm:rounded-[28px] ${maxHeightClassName}`}
+            className={`relative flex w-full max-w-md flex-col overflow-hidden rounded-t-[28px] bg-surface shadow-[0_-12px_40px_-12px_rgba(0,0,0,0.25)] ${maxHeightClassName}`}
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%", transition: { duration: 0.24, ease: [0.4, 0, 1, 1] } }}
