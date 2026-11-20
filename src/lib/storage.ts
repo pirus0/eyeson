@@ -14,6 +14,37 @@ export function emptyData(): StoreData {
   };
 }
 
+export function withDefaults(parsed: Partial<StoreData>): StoreData {
+  return {
+    bills: parsed.bills ?? [],
+    installments: parsed.installments ?? [],
+    recurringTodos: parsed.recurringTodos ?? [],
+    weeklyTodos: parsed.weeklyTodos ?? [],
+    oneOffs: parsed.oneOffs ?? [],
+    creditCards: parsed.creditCards ?? [],
+    completions: parsed.completions ?? {},
+  };
+}
+
+export function isEmpty(d: StoreData): boolean {
+  return (
+    !d.bills.length &&
+    !d.installments.length &&
+    !d.recurringTodos.length &&
+    !d.weeklyTodos.length &&
+    !d.oneOffs.length &&
+    !d.creditCards.length &&
+    !Object.keys(d.completions).length
+  );
+}
+
+/** Keeps a copy of this device's data before the cloud copy replaces it. */
+export function stashLocal(data: StoreData): void {
+  try {
+    window.localStorage.setItem(`${STORAGE_KEY}-onceki-${Date.now()}`, JSON.stringify(data));
+  } catch {}
+}
+
 export function loadData(): StoreData {
   if (typeof window === "undefined") return emptyData();
   // Leftovers from the old GitHub Gist backup, which needed a token.
@@ -22,16 +53,7 @@ export function loadData(): StoreData {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyData();
-    const parsed = JSON.parse(raw) as Partial<StoreData>;
-    return {
-      bills: parsed.bills ?? [],
-      installments: parsed.installments ?? [],
-      recurringTodos: parsed.recurringTodos ?? [],
-      weeklyTodos: parsed.weeklyTodos ?? [],
-      oneOffs: parsed.oneOffs ?? [],
-      creditCards: parsed.creditCards ?? [],
-      completions: parsed.completions ?? {},
-    };
+    return withDefaults(JSON.parse(raw) as Partial<StoreData>);
   } catch {
     // Unreadable data is set aside before starting empty: the next save
     // would otherwise overwrite the only copy.

@@ -8,6 +8,8 @@ import { IconButton } from "./IconButton";
 import { Sheet } from "./Sheet";
 import { ImportControls } from "./ImportControls";
 import { shareBackup } from "@/lib/backup";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 type Props = {
   open: boolean;
@@ -28,9 +30,8 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
       <Sheet open={open} onClose={() => onOpenChange(false)} title="Yedekleme">
             <div className="flex flex-col gap-2 pb-6">
               <p className="text-[14px] leading-relaxed text-ink-soft">
-                Verilerin sadece bu telefonda saklanır. Tüm kayıtlarını tek bir dosya olarak
-                kendine gönder (WhatsApp, Notlar, Dosyalar…). Telefon değişirse ya da
-                uygulama silinirse bu dosyadan geri yüklenir.
+                Kayıtların hesabında saklanır, telefon ve bilgisayarda aynıdır. İstersen
+                ayrıca tek bir dosya olarak kendine gönder.
               </p>
               <button
                 type="button"
@@ -49,6 +50,14 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
               </p>
               <ImportControls withFile />
             </div>
+
+            <button
+              type="button"
+              onClick={() => void signOut(auth)}
+              className="press mt-6 min-h-12 w-full rounded-full bg-surface-2 text-[15px] font-semibold text-ink"
+            >
+              Çıkış
+            </button>
       </Sheet>
     </>
   );

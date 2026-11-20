@@ -21,7 +21,9 @@ import type {
   StoreData,
   WeeklyTodo,
 } from "./types";
-import { emptyData, loadData, saveData } from "./storage";
+import { emptyData, isEmpty, loadData, saveData, stashLocal, withDefaults } from "./storage";
+import { onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { dataDoc } from "./firebase";
 import { mergeData } from "./backup";
 import { clampToMonth, fromKey, toKey } from "./date";
 
@@ -168,6 +170,51 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setReady(true);
   }, []);
 
+  // Cloud sync: one document holds everything. `cloudJsonRef` is the JSON
+  // last seen in (or sent to) the cloud, so an edit that came from the cloud
+  // isn't sent back, and our own write's echo is ignored.
+  const cloudJsonRef = useRef<string | null>(null);
+  const firstSnapRef = useRef(true);
+
+  useEffect(() => {
+    if (!ready) return;
+    return onSnapshot(dataDoc, (snap) => {
+      if (snap.metadata.hasPendingWrites) return;
+      const first = firstSnapRef.current;
+      // The first answer may come from the offline cache before the server;
+      // an empty cache is not proof the cloud is empty.
+      if (!snap.exists()) {
+        if (snap.metadata.fromCache) return;
+        firstSnapRef.current = false;
+        const json = JSON.stringify(latestDataRef.current);
+        cloudJsonRef.current = json;
+        void setDoc(dataDoc, { json, at: serverTimestamp() });
+        return;
+      }
+      const json = snap.get("json") as string;
+      if (typeof json !== "string" || json === cloudJsonRef.current) return;
+      firstSnapRef.current = false;
+      let remote: StoreData;
+      try {
+        remote = withDefaults(JSON.parse(json) as Partial<StoreData>);
+      } catch {
+        return;
+      }
+      const local = latestDataRef.current;
+      const localJson = JSON.stringify(local);
+      if (localJson === json) {
+        cloudJsonRef.current = json;
+        return;
+      }
+      // First contact on a device that already had its own records: keep a
+      // copy of them before the cloud's version takes over.
+      if (first && !isEmpty(local)) stashLocal(local);
+      cloudJsonRef.current = json;
+      latestDataRef.current = remote;
+      setData(remote);
+    });
+  }, [ready]);
+
   useEffect(() => {
     if (!ready) return;
     if (isHydratingRef.current) {
@@ -178,6 +225,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       saveWarnedRef.current = true;
       window.alert("Değişiklik kaydedilemedi. Telefonda yer kalmamış olabilir; yedek alıp yer açın.");
     }
+    // Until the cloud has answered once, local edits wait (they're kept on
+    // the device and go up with the next edit after that).
+    if (cloudJsonRef.current === null) return;
+    const json = JSON.stringify(data);
+    if (json === cloudJsonRef.current) return;
+    cloudJsonRef.current = json;
+    void setDoc(dataDoc, { json, at: serverTimestamp() });
   }, [data, ready]);
 
   const importData = useCallback<StoreContextValue["importData"]>((incoming) => {
