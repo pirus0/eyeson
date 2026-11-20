@@ -7,7 +7,7 @@
 
 import { cert, initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
-import webpush from "web-push";
+import * as webpush from "web-push";
 import { computeReminders, type Reminder } from "../src/lib/occurrences";
 import { withDefaults } from "../src/lib/storage";
 import { itemTitle } from "../src/lib/itemMeta";
