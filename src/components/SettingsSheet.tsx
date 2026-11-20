@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { CloudSyncIcon } from "./Icons";
@@ -10,6 +10,7 @@ import { ImportControls } from "./ImportControls";
 import { shareBackup } from "@/lib/backup";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { disablePush, enablePush, pushState, type PushState } from "@/lib/push";
 
 type Props = {
   open: boolean;
@@ -20,6 +21,24 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
   const { data } = useStore();
   const [shared, setShared] = useState(false);
   useBodyScrollLock(open);
+  const [push, setPush] = useState<PushState | null>(null);
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    if (open) void pushState().then(setPush).catch(() => setPush("unsupported"));
+  }, [open]);
+
+  async function togglePush() {
+    if (pushBusy) return;
+    setPushBusy(true);
+    try {
+      setPush(await (push === "on" ? disablePush() : enablePush()));
+    } catch {
+      setPush(await pushState().catch(() => "unsupported" as const));
+    } finally {
+      setPushBusy(false);
+    }
+  }
 
   return (
     <>
@@ -50,6 +69,39 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
               </p>
               <ImportControls withFile />
             </div>
+
+            {push && (
+              <div className="mt-6 flex min-h-12 items-center justify-between gap-3">
+                <span className="text-[15px] font-semibold text-ink">Bildirim</span>
+                {push === "on" || push === "off" ? (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={push === "on"}
+                    aria-label="Bildirim"
+                    disabled={pushBusy}
+                    onClick={() => void togglePush()}
+                    className={`press relative h-8 w-[52px] shrink-0 rounded-full transition-colors ${
+                      push === "on" ? "bg-ink" : "bg-surface-2"
+                    } ${pushBusy ? "opacity-60" : ""}`}
+                  >
+                    <span
+                      className={`absolute top-1 left-1 h-6 w-6 rounded-full shadow transition-transform ${
+                        push === "on" ? "translate-x-5 bg-paper" : "bg-ink-soft"
+                      }`}
+                    />
+                  </button>
+                ) : (
+                  <span className="text-[13px] text-ink-faint">
+                    {push === "denied"
+                      ? "Ayarlar'dan izin ver"
+                      : push === "needsHomeScreen"
+                        ? "Ana ekrandan aç"
+                        : "Desteklenmiyor"}
+                  </span>
+                )}
+              </div>
+            )}
 
             <button
               type="button"

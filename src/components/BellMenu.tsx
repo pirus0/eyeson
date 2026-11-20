@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useStore } from "@/lib/store";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
+import { setBadge } from "@/lib/push";
 import { computeReminders, occurrenceAmount, type Reminder } from "@/lib/occurrences";
 import { formatShort } from "@/lib/date";
 import { formatAmount, itemTitle, IMPORTANCE_DOT_CLASS } from "@/lib/itemMeta";
@@ -147,6 +148,8 @@ export function BellMenu({ today, onSelectDate, open, onOpenChange }: Props) {
     () => computeReminders(data, data.completions, today),
     [data, today]
   );
+
+  useEffect(() => setBadge(reminders.length), [reminders.length]);
 
   return (
     <>

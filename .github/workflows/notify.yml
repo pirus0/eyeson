@@ -1,0 +1,35 @@
+name: Sabah bildirimi
+
+on:
+  schedule:
+    # 06:00 UTC = 09:00 Türkiye. GitHub may start scheduled runs a little late.
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Bildirim gönder
+        env:
+          TZ: Europe/Istanbul
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+        run: npx tsx scripts/notify.ts
+      # GitHub turns off scheduled workflows in a public repo after 60 days
+      # without commits. Re-enabling it on every run resets that clock.
+      - name: Zamanlamayı açık tut
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/notify.yml/enable"
